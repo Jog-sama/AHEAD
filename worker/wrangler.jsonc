@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ahead-ask",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": true }
+  // Secrets ANTHROPIC_API_KEY and SHARED_TOKEN come from `wrangler secret put`
+  // (and .dev.vars locally), never from this file.
+}

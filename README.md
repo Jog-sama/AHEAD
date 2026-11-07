@@ -1,20 +1,5 @@
 > **Obstacle upgrade:** Start with [MIGRATION.md](MIGRATION.md). See docs/UPGRADE_AUDIT.md and docs/SPONSOR_SETUP.md for current capabilities. The original baseline documentation below is retained for compatibility; statements that neural vision and sponsor wiring are absent describe the prior version.
 
-# Ahead
-
-A white cane finds the ground. Ahead watches chest and head height, where the cane does not reach: iPhone LiDAR in a
-chest mount felt as pulses (silent beyond 2.5 m, slow within 2.5 m, fast within 1 m), an upward ultrasonic on the cane
-over Bluetooth, a photo described on request. Silent by default; the cloud never judges a crossing and never states a
-distance. Built in parallel with TactileVector below; the team decides which design the submission describes.
-
-| Part | Where | What it is for |
-| --- | --- | --- |
-| `research/` | here | the design council's brief, four model reports, `handoff.md` with the synthesis and the verified facts; the slides come from its Pitch-ready facts |
-| `eval/` | here | walk protocol, bench-log header, NASA-TLX, `analyze.py` for the page's CSV |
-| `worker/` | here | the cloud "ask", a Cloudflare Worker; `npm test` runs its guardrails without a network; deploys from Jonas's Cloudflare account |
-| iPhone app | TestFlight: https://testflight.apple.com/join/RuyPSTNZ (after Beta App Review) | target `Ahead` in jonasneves/phone-bridge, private; it compiles that repo's native code |
-| Cane firmware | jonasneves/esp32-labs, `cane/` | ESP32-C3 SuperMini, JSN-SR04T, coin motor, one button; the GATT contract is in its README |
-
 # TactileVector
 
 **A working software prototype for a stationary, sighted, supervised one-servo thumb-cue demo.**

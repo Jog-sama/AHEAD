@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .adapters import InformerWebhook
 from .arkit_depth import ARKitDepthVision, ARKitPacket, MAX_FRAME_BYTES, parse_packet
+from .navigation_recorder import NavigationRecorder
 from .config import Settings
 from .controller import ControlError, Controller
 from .device import Device, DeviceError, HttpDevice, MockDevice
@@ -83,6 +84,7 @@ def create_app(
     detector = vision or MarkerVision()
     obstacle_detector = obstacle_vision or ObstacleVision.from_env()
     arkit_detector = ARKitDepthVision(getattr(obstacle_detector, "models", None))
+    navigation_recorder = NavigationRecorder.from_env()
     frame_lock = asyncio.Lock()
     speech_lock = asyncio.Lock()
     outbox = hazard_outbox or HazardOutbox(os.getenv("TV_HAZARD_DB", "data/hazards.sqlite3"))
@@ -126,7 +128,10 @@ def create_app(
                     await exporter
             with suppress(DeviceError):
                 await controller.stop("Server shutting down.")
-            await d.close()
+            try:
+                await asyncio.to_thread(navigation_recorder.close)
+            finally:
+                await d.close()
 
     app = FastAPI(
         title="TactileVector",
@@ -301,6 +306,7 @@ def create_app(
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from exc
             result = await controller.apply_frame(decision, generation, sequence, received_at)
+            navigation_recorder.capture(packet, sequence)
             # Preserve the existing spatial voice/Tinker frame context for native frames.
             latest.update(
                 jpeg=base64.b64decode(packet.jpeg_b64),

@@ -117,7 +117,8 @@ def test_old_sightline_cannot_authorize_route_after_current_occlusion():
         for x in (-.16, 0., .16)
     ])
     nav.frames.append(_Frame(now, origin.copy(), center_points,
-                             np.full(len(center_points), 3, dtype=np.int8)))
+                             np.full(len(center_points), 3, dtype=np.int8),
+                             near_depth_points={"center": 12}))
     first = nav.evaluate(packet, now)
     assert first["direction"] == "center", first
     # Phone now sees a different region; the historical center ray evidence
@@ -131,3 +132,38 @@ def test_old_sightline_cannot_authorize_route_after_current_occlusion():
     assert second["direction"] == "unknown", second
     assert second["evidence"]["center"]["current_support"] is False
     assert second["frames"] == 2
+
+
+
+def test_distant_rays_cannot_authorize_unobserved_near_corridor(monkeypatch):
+    """Reproduces real-phone log: high overall depth, zero near depth, false center."""
+    from backend.arkit_depth import unproject_camera_relative
+
+    monkeypatch.setenv("TV_NAV_POLICY", "temporal")
+    original = ARKitPacket.model_validate(make_packet())
+    forward, lateral, _, good = unproject_camera_relative(original)
+    pkt = make_packet()
+    # Remove only actual LiDAR endpoints inside 0.35-0.90m while retaining
+    # far observations. Older code projected those distant rays into the near
+    # lane and incorrectly returned 'center' with a confidence of 1.
+    near = good & (forward >= .35) & (forward < .90)
+    depth = np.asarray(pkt["depth_m"], dtype=float).reshape(forward.shape)
+    depth[near] = 0.
+    pkt["depth_m"] = depth.ravel().tolist()
+    nav = ARKitDepthVision()
+    decision = nav.predict(ARKitPacket.model_validate(pkt))
+    assert decision.direction == "unknown", decision.scene
+    info = decision.scene["navigation_map"]
+    assert info["near_coverage"]["center"]["measured_depth_points"] == 0
+    assert info["near_coverage"]["center"]["confirmed"] is False
+    assert "Near walking corridor not directly observed" in info["reason"]
+    assert decision.scene["free_space"]["center"] == 0.0
+
+
+def test_direct_near_floor_evidence_is_reported(monkeypatch):
+    monkeypatch.setenv("TV_NAV_POLICY", "temporal")
+    result = predict(ARKitDepthVision())
+    info = result.scene["navigation_map"]["near_coverage"]["center"]
+    assert info["measured_depth_points"] >= 8
+    assert info["confirmed"] is True
+    assert result.direction == "center"

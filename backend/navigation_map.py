@@ -25,6 +25,9 @@ class _Frame:
     position: np.ndarray
     points: np.ndarray  # World XYZ
     kinds: np.ndarray  # 1 obstacle, 2 measured floor, 3 ray visibility
+    # Actual current sensor returns, never inferred by interpolated sightlines.
+    near_depth_points: dict[str, int] | None = None
+    floor_anchor_available: bool = False
 
 
 class TemporalNavigationMap:
@@ -130,7 +133,16 @@ class TemporalNavigationMap:
                 pos = np.concatenate((pos, ray_points), axis=0)
                 kinds = np.concatenate((kinds, np.full(len(ray_points), 3, dtype=np.int8)))
 
-        self.frames.append(_Frame(now, origin, pos, kinds))
+        near_depth_points = {}
+        for lane, slope in SLOPES.items():
+            near_corridor = (valid & (forward >= BANDS[0][0])
+                             & (forward < BANDS[0][1])
+                             & (np.abs(lateral - slope * forward) <= HALF_WIDTH))
+            near_depth_points[lane] = int(np.count_nonzero(near_corridor))
+        self.frames.append(_Frame(
+            now, origin, pos, kinds, near_depth_points,
+            floor_anchor_available=camera_height is not None,
+        ))
         while self.frames and now - self.frames[0].received > self.max_age_s:
             self.frames.popleft()
         return self.evaluate(packet, now)
@@ -191,13 +203,26 @@ class TemporalNavigationMap:
                     "floor_cells": ground, "line_of_sight_cells": visible,
                     "supported": ground >= 2 or visible >= 2,
                 })
-            # Require recent, independent depth support in BOTH near bands.
-            # An old, possibly stale map may still mark a hazard as blocked.
-            current_support = all(b["supported"] for b in fresh_bands)
+            # A projected ray from 2m away is NOT a sensor observation of the
+            # first 0.35-0.90m. Never grant an open cue when the current frame
+            # provides no direct measurements in that near corridor.
+            measured_near = (fresh.near_depth_points or {}).get(lane, 0)
+            near_measured = measured_near >= 8
+            # When ARKit supplies a plausible classified floor anchor, prefer
+            # direct near-floor returns over rays passing above small hazards.
+            near_floor = fresh_bands[0]["floor_cells"] >= 2
+            near_coverage = near_measured and (
+                near_floor if fresh.floor_anchor_available else True
+            )
+            # The old map may still VETO a route, never authorize unseen space.
+            current_support = all(b["supported"] for b in fresh_bands) and near_coverage
             supported[lane] = score >= 0.68 and not obstacle and current_support
             details[lane] = {
                 "bands": band_stats, "quality": score,
                 "fresh_bands": fresh_bands, "current_support": current_support,
+                "measured_near_depth_points": measured_near,
+                "measured_near_floor_cells": fresh_bands[0]["floor_cells"],
+                "near_coverage_confirmed": near_coverage,
                 "candidate_sightline_only": not any(d["floor_cells"] for d in band_stats),
             }
 
@@ -216,7 +241,11 @@ class TemporalNavigationMap:
             else:
                 choice, reason = "unknown", "Center blocked; no unambiguous side corridor"
         else:
-            choice, reason = "unknown", "Forward geometry unverified; do not guess a turn"
+            center_info = details["center"]
+            if not center_info["near_coverage_confirmed"]:
+                choice, reason = "unknown", "Near walking corridor not directly observed; hold position"
+            else:
+                choice, reason = "unknown", "Forward geometry unverified; do not guess a turn"
 
         # Avoid a side-to-side flip based on a weak new advantage.
         if (choice in ("left", "right") and self.previous_choice in ("left", "right")

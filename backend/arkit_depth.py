@@ -396,6 +396,15 @@ class ARKitDepthVision:
                 "frames": nav["frames"], "scores": nav["scores"],
                 "evidence": nav["evidence"], "reason": nav["reason"],
                 "warning": nav["warning"],
+                "near_coverage": {
+                    k: {
+                        "measured_depth_points": nav["evidence"].get(k, {}).get(
+                            "measured_near_depth_points", 0),
+                        "confirmed": nav["evidence"].get(k, {}).get(
+                            "near_coverage_confirmed", False),
+                    }
+                    for k in LANES
+                },
             }
             # Current hazards take precedence over historical evidence, while
             # previous obstacles remain visible through brief depth dropouts.

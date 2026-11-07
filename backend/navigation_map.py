@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import time
 
 import numpy as np
+import cv2
 
 LANES = ("left", "center", "right")
 SLOPES = {"left": -0.42, "center": 0.0, "right": 0.42}
@@ -96,8 +97,17 @@ class TemporalNavigationMap:
             floor = np.zeros_like(valid, dtype=bool)
         else:
             height = relative_height + camera_height
-            solid = valid & (height >= 0.17) & (height <= 1.85)
-            floor = valid & (np.abs(height) <= 0.14)
+            # Ground-adjacent obstacles are detectable only if the depth
+            # anomaly forms a connected image region. A raw 6-cm height
+            # cutoff alone accumulated phantom obstacles under 3-cm noise.
+            tall = valid & (height >= 0.115) & (height <= 1.85)
+            low_raw = valid & (height >= 0.060) & (height < 0.115)
+            _, labels, stats, _ = cv2.connectedComponentsWithStats(
+                low_raw.astype(np.uint8), connectivity=8
+            )
+            low = low_raw & (stats[labels, cv2.CC_STAT_AREA] >= 8) & (labels != 0)
+            solid = tall | low
+            floor = valid & (np.abs(height) <= 0.045)
 
         # Distant measurements imply rays were visible up to their endpoints,
         # NOT that ground, stairs, or low obstacles along the ray are traversable.

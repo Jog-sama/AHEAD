@@ -227,11 +227,17 @@ def create_app(
 
     @app.post("/api/arm", dependencies=auth)
     async def arm(body: ArmRequest):
-        return await controller.arm(body.mode)
+        async with frame_lock:
+            state = await controller.arm(body.mode)
+            arkit_detector.reset()
+            return state
 
     @app.post("/api/stop", dependencies=auth)
     async def stop():
-        return await controller.stop()
+        state = await controller.stop()
+        async with frame_lock:
+            arkit_detector.reset()
+        return state
 
     @app.post("/api/steer", dependencies=auth)
     async def steer(body: SteerRequest):
@@ -348,7 +354,12 @@ def create_app(
             decision = snapshot.get("decision", controller.last_decision)
             packet = body.packet or snapshot["packet"]
             if body.packet is not None:
-                decision = await asyncio.to_thread(arkit_detector.predict, packet)
+                # Narration is independent of the streaming navigation map.
+                # Do not append a duplicate/old frame to live navigation history.
+                decision = await asyncio.to_thread(
+                    ARKitDepthVision(getattr(obstacle_detector, "models", None)).predict,
+                    packet,
+                )
                 if packet.tracking != "normal":
                     raise HTTPException(409, "Camera tracking unstable; capture again")
             # The image model is run ONLY on demand in a worker thread.

@@ -1,0 +1,88 @@
+{
+  "fixture": "Ultralytics bus.jpg",
+  "runs_ms": [
+    138.7,
+    62.1,
+    61.1,
+    60.6
+  ],
+  "decision": {
+    "direction": "unknown",
+    "phrase": "Uncertain. Hold position.",
+    "reason": "Insufficient connected floor support",
+    "scores": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "source": "obstacle_opencv",
+    "scene": {
+      "objects": [
+        {
+          "label": "bus",
+          "confidence": 0.904,
+          "box": [
+            0.0014555931091308593,
+            0.21218210856119793,
+            0.9942812919616699,
+            0.6918537139892578
+          ],
+          "clock": "12"
+        },
+        {
+          "label": "person",
+          "confidence": 0.853,
+          "box": [
+            0.05987536907196045,
+            0.3642999013264974,
+            0.2882840156555176,
+            0.8395432790120443
+          ],
+          "clock": "10"
+        },
+        {
+          "label": "person",
+          "confidence": 0.841,
+          "box": [
+            0.27440314292907714,
+            0.37270085016886395,
+            0.424833345413208,
+            0.7935237884521484
+          ],
+          "clock": "12"
+        },
+        {
+          "label": "person",
+          "confidence": 0.832,
+          "box": [
+            0.827241325378418,
+            0.37320582071940106,
+            0.9994405746459961,
+            0.8044562021891276
+          ],
+          "clock": "2"
+        },
+        {
+          "label": "person",
+          "confidence": 0.482,
+          "box": [
+            0.00019069314002990724,
+            0.5071511586507161,
+            0.09582728743553162,
+            0.8004108428955078
+          ],
+          "clock": "10"
+        }
+      ],
+      "quality": {
+        "brightness": 116.8,
+        "sharpness": 3599.9
+      },
+      "depth_kind": "relative_inverse_depth",
+      "metric_distance": null,
+      "confidence_kind": "heuristic_evidence_not_probability",
+      "warning": "Estimated floor support is not verified traversability"
+    }
+  },
+  "hardware_tested": false
+}

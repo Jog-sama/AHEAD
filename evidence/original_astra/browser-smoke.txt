@@ -1,0 +1,2 @@
+Chromium 390px: auth, manual nudge/release, camera upload, Stop, microphone upload, no JS errors, no horizontal overflow PASS
+Desktop WebKit unavailable: browserType.launch: 

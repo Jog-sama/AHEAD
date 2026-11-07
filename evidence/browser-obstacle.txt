@@ -1,0 +1,1 @@
+Chromium: obstacle mode auto-arm, fresh frame diagnostics, missing-model neutral, voice, hazards, Stop PASS. Fake camera; mock servo.

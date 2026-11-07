@@ -1,0 +1,1 @@
+Firmware safety policy: parsing, bounds, PWM math, timeout/rollover PASS

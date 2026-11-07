@@ -1,0 +1,4 @@
+# Optional; install separately. The core app never imports these without an explicit query.
+tinker
+tinker-cookbook
+tml-renderers

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10241e"><title>TactileVector</title><link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script></head>
+<body><main>
+<header><div><p class="eyebrow">PHYSICAL DIRECTION / ONE SERVO</p><h1>TactileVector<span>.</span></h1></div><span id="connection">Disconnected</span></header>
+<p class="notice">Stationary, sighted, supervised demo. Keep your thumb clear until the unloaded servo is calibrated.</p>
+<section class="connect"><label for="key">Local access key</label><div class="row"><input id="key" type="password" autocomplete="off" placeholder="TV_API_KEY from your laptop"><button id="connect">Connect</button></div><small>The key stays in this page’s memory. One operator at a time.</small></section>
+<section class="stage"><video id="video" autoplay muted playsinline></video><div class="zones"><span>10 o’clock</span><span>12 o’clock</span><span>2 o’clock</span></div><p id="cameraLabel">Camera off · Manual control works without it</p></section>
+<div class="row"><button id="camera">Start camera</button><button id="endCamera">Stop camera</button></div>
+<section class="readout" aria-live="polite"><p id="modeLabel">DISARMED</p><h2 id="phrase">Hold position.</h2><p id="telemetry">No device acknowledgement yet.</p></section>
+<div class="row"><label for="mode">Input</label><select id="mode"><option value="manual">Manual thumb cues</option><option value="cv">Green target tracking · TEST ONLY</option><option value="obstacle">Obstacle scene · experimental</option></select><button id="arm">Arm</button></div>
+<label><input id="autoArm" type="checkbox" checked> Arm camera mode when camera starts</label><p id="engine"></p><details open><summary>Scene evidence</summary><pre id="scene">No scene evidence yet.</pre></details>
+<p id="hint">Hold a direction button to nudge. Releasing stops and disarms.</p>
+<div class="directions"><button data-direction="left">←<span>LEFT</span></button><button data-direction="center">•<span>NEUTRAL</span></button><button data-direction="right">→<span>RIGHT</span></button></div>
+<button id="stop" class="stop">STOP &amp; NEUTRAL</button>
+<section class="voice"><h3>Ask for a short cue</h3><button id="record">Hold to record · max 4 seconds</button><p id="audioStatus">Microphone requested only when pressed. Speech recognition is optional.</p><audio id="playback" controls></audio>
+<div class="row"><input id="question" value="status" aria-label="Question"><button id="ask">Ask locally</button><button id="askTinker">Ask Tinker · sends frame</button></div><div class="row"><button id="speak">Speak latest cue</button><button id="statusVoice">Read status</button></div>
+<p id="voiceReply">In obstacle mode: “what is ahead”, “where is the chair”, or “clear path”. Calls describe the image; voice never steers.</p></section>
+<section><h3>Hazard candidates</h3><div class="row"><button id="hazards">Refresh candidates</button><button id="location">Attach location · 60s</button><button id="clearLocation">Clear location</button></div><p id="hazardStatus">Stored locally. Informer export requires server configuration. No photos are stored or exported.</p><pre id="hazardList"></pre></section>
+<details><summary>What this demo can see</summary><p>Obstacle mode combines YOLO object boxes, relative depth, and appearance-connected floor estimates. Three agreeing frames are required for a cue. Missing models, ambiguity, blur or unsupported geometry returns neutral. Depth has no metric units. Glass, drops, unfamiliar surfaces and hidden obstacles remain unresolved.</p><p>Show one large green card inside the lower part of a single camera zone. Two matching frames select that direction. A red card in the same zone, ambiguous targets, or no green target returns neutral. This does not detect safe walkways, distance, stairs, glass, traffic, or people.</p><p>Frames are sent sequentially, at most 5 per second. Timing shown here is measured software request time, not physical motion latency. Camera/audio are processed in memory; no recording is saved by the server.</p></details>
+<p id="error" role="alert"></p><footer>Camera → laptop → Wi-Fi → thumb cue</footer>
+</main></body></html>

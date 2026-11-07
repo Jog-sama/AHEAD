@@ -1,0 +1,25 @@
+{
+  "name": "tactilevector-hazards",
+  "private": true,
+  "type": "module",
+  "version": "0.2.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "deploy": "npm run build && informer-deploy",
+    "test": "node --test tests/*.test.js",
+    "workspace:init": "informer-workspace init",
+    "workspace:migrate": "informer-workspace migrate"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "@entrinsik/vite-plugin-informer": "2.14.0"
+  },
+  "informer": {
+    "name": "TactileVector Hazard Review",
+    "description": "Candidate obstacles for human review; no ADA compliance determinations"
+  }
+}

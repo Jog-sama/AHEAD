@@ -1,0 +1,2 @@
+PASS: local TCP HTTP JPEG -> OpenCV -> backend -> ESP32 simulator; L/C/R, Stop, stale rejection
+Software-only backend elapsed ms: [11.1, 2.11, 2.09, 1.81, 2.12, 1.97]

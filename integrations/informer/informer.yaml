@@ -1,0 +1,5 @@
+# Uses only the app's own Postgres workspace. No broad tenant API permissions.
+roles:
+  - id: viewer
+    name: Viewer
+    description: Review model-generated hazard candidates

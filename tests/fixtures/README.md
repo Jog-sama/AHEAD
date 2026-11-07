@@ -1,0 +1,1 @@
+Real image: bus.jpg retrieved from https://raw.githubusercontent.com/ultralytics/assets/main/im/bus.jpg for a model smoke check. Source project: Ultralytics assets. This image is not an indoor navigation benchmark. Synthetic geometry tests are constructed in test_obstacles.py. No user camera recording or real iPhone video was tested.

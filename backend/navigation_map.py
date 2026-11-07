@@ -98,16 +98,16 @@ class TemporalNavigationMap:
         else:
             height = relative_height + camera_height
             # Ground-adjacent obstacles are detectable only if the depth
-            # anomaly forms a connected image region. A raw 6-cm height
-            # cutoff alone accumulated phantom obstacles under 3-cm noise.
+            # anomaly forms a connected image region. A raw 4-cm height
+            # cutoff alone can accumulate phantom obstacles under 3-cm noise.
             tall = valid & (height >= 0.115) & (height <= 1.85)
-            low_raw = valid & (height >= 0.060) & (height < 0.115)
+            low_raw = valid & (height >= 0.040) & (height < 0.115)
             _, labels, stats, _ = cv2.connectedComponentsWithStats(
                 low_raw.astype(np.uint8), connectivity=8
             )
             low = low_raw & (stats[labels, cv2.CC_STAT_AREA] >= 8) & (labels != 0)
             solid = tall | low
-            floor = valid & (np.abs(height) <= 0.045)
+            floor = valid & (np.abs(height) <= 0.035)
 
         # Distant measurements imply rays were visible up to their endpoints,
         # NOT that ground, stairs, or low obstacles along the ray are traversable.

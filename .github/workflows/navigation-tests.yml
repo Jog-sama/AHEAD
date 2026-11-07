@@ -26,4 +26,4 @@ jobs:
       - name: Run full backend test suite
         run: python -m pytest -q
       - name: Randomized LiDAR stress audit (report all critical misses)
-        run: python -m scripts.stress_navigation --cases 180 --seed 20261107
+        run: python -m scripts.stress_navigation --cases 180 --seed 20261107 --fail-on-critical

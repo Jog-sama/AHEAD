@@ -1,5 +1,20 @@
 > **Obstacle upgrade:** Start with [MIGRATION.md](MIGRATION.md). See docs/UPGRADE_AUDIT.md and docs/SPONSOR_SETUP.md for current capabilities. The original baseline documentation below is retained for compatibility; statements that neural vision and sponsor wiring are absent describe the prior version.
 
+# Ahead
+
+A white cane finds the ground. Ahead watches chest and head height, where the cane does not reach: iPhone LiDAR in a
+chest mount felt as pulses (silent beyond 2.5 m, slow within 2.5 m, fast within 1 m), an upward ultrasonic on the cane
+over Bluetooth, a photo described on request. Silent by default; the cloud never judges a crossing and never states a
+distance. Built in parallel with TactileVector below; the team decides which design the submission describes.
+
+| Part | Where | What it is for |
+| --- | --- | --- |
+| `research/` | here | the design council's brief, four model reports, `handoff.md` with the synthesis and the verified facts; the slides come from its Pitch-ready facts |
+| `eval/` | here | walk protocol, bench-log header, NASA-TLX, `analyze.py` for the page's CSV |
+| `worker/` | here | the cloud "ask", a Cloudflare Worker; `npm test` runs its guardrails without a network; deploys from Jonas's Cloudflare account |
+| iPhone app | TestFlight: https://testflight.apple.com/join/RuyPSTNZ (after Beta App Review) | target `Ahead` in jonasneves/phone-bridge, private; it compiles that repo's native code |
+| Cane firmware | jonasneves/esp32-labs, `cane/` | ESP32-C3 SuperMini, JSN-SR04T, coin motor, one button; the GATT contract is in its README |
+
 # TactileVector
 
 **A working software prototype for a stationary, sighted, supervised one-servo thumb-cue demo.**
@@ -92,3 +107,20 @@ All `/api/*` endpoints require `X-API-Key`. The public `/health` only identifies
 - `evidence/`: real test/build output and the distinction between tested and pending.
 
 No device power, latency, efficacy, accessibility certification, price, prize eligibility, or sponsor result is asserted from simulation. This is not a navigation aid for blindfolded walking or a safety system. It does not establish novelty against commercial assistive products.
+
+## Ahead, a parallel design (Jonas)
+
+Built over the same two days, in Jonas's own repos; these folders are here so anyone on the team can edit them. Ahead
+watches chest and head height, where a cane does not reach: iPhone LiDAR in a chest mount, felt as pulses (silent
+beyond 2.5 m, slow within 2.5 m, fast within 1 m); an ultrasonic sensor on the cane pointing up at head height, over
+Bluetooth; a photo described aloud on request. Two rules from the research below: the cloud never says whether to
+cross a street, and never speaks a distance (the LiDAR's own distance is spoken instead).
+
+| Part | Where | What it is |
+| --- | --- | --- |
+| `research/` | here | one brief put to four AI models (Codex, Gemini, Claude, Cursor), their four reports, and `handoff.md`: the synthesis, with which claims were checked against primary sources and which were not |
+| `eval/` | here | a walking test protocol, a sensor bench-log template, the NASA-TLX workload questionnaire, and `analyze.py`, which summarizes the CSV the app exports after a walk |
+| `worker/` | here | the Cloudflare Worker behind the app's Ask button: the phone sends a photo and the LiDAR readings, Claude returns one spoken sentence. The two rules above are enforced in code and `npm test` checks them offline. Deployed today from Jonas's Cloudflare account; `npx wrangler deploy` puts it on anyone's |
+| iPhone app | TestFlight: https://testflight.apple.com/join/RuyPSTNZ, live once Apple's beta review clears | source in jonasneves/phone-bridge, private; ask Jonas for read access |
+| Cane firmware | jonasneves/esp32-labs, `cane/`, private; ask for read access | ESP32-C3 SuperMini, JSN-SR04T ultrasonic, coin motor under the index finger, one button; the Bluetooth contract is in its README |
+

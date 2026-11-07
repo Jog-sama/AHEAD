@@ -49,7 +49,9 @@ def decode_frame(data: bytes) -> np.ndarray:
                     raise ValueError("Only JPEG frames are accepted")
                 w, h = im.size
                 if min(w, h) < 96 or max(w, h) > 1280 or w * h > 1_000_000:
-                    raise ValueError("Use 640x480 or smaller; dimensions must be 96..1280")
+                    raise ValueError(
+                        "Use 640x480 or smaller; dimensions must be 96..1280"
+                    )
                 im.load()
                 rgb = np.asarray(im.convert("RGB"))
     except (
@@ -74,17 +76,23 @@ class MarkerVision:
         )
         kernel = np.ones((5, 5), np.uint8)
         green = cv2.morphologyEx(green, cv2.MORPH_OPEN, kernel)
-        scores = tuple(float(np.mean(green[:, i * 160 : (i + 1) * 160] > 0)) for i in range(3))
-        blocked = tuple(float(np.mean(red[:, i * 160 : (i + 1) * 160] > 0)) for i in range(3))
+        scores = tuple(
+            float(np.mean(green[:, i * 160 : (i + 1) * 160] > 0)) for i in range(3)
+        )
+        blocked = tuple(
+            float(np.mean(red[:, i * 160 : (i + 1) * 160] > 0)) for i in range(3)
+        )
         best = int(np.argmax(scores))
         second = sorted(scores)[-2]
-        if scores[best] < 0.06:
+        if scores[best] < 0.04:
             reason = "No sufficiently large green demo target"
-        elif scores[best] - second < 0.04:
+        elif scores[best] - second < 0.02:
             reason = "Ambiguous target across lanes"
         elif blocked[best] > 0.08:
             reason = "Red exclusion card in target lane"
         else:
             direction: Direction = ("left", "center", "right")[best]
-            return Decision(direction, phrase_for(direction), "Green demo target", scores)
+            return Decision(
+                direction, phrase_for(direction), "Green demo target", scores
+            )
         return Decision("unknown", phrase_for("unknown"), reason, scores)

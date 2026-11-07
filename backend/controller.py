@@ -45,9 +45,11 @@ class Controller:
             error=self.error,
             device=self.s.device,
             device_ack=self.last_ack,
-            ack_age_ms=round((time.monotonic() - self.last_ack_at) * 1000)
-            if self.last_ack_at
-            else None,
+            ack_age_ms=(
+                round((time.monotonic() - self.last_ack_at) * 1000)
+                if self.last_ack_at
+                else None
+            ),
             device_http_ms=self.device_ms,
             last_sequence=self.last_sequence,
             vision=self.last_decision.json() if self.last_decision else None,
@@ -136,10 +138,16 @@ class Controller:
             else:
                 self.candidate, self.candidate_count = decision.direction, 1
             # LiDAR's metric evidence permits a two-frame confirmation for a
-            # faster stationary demo. RGB obstacle inference remains at three.
+            # faster stationary demo. RGB obstacle inference remains at one.
             # Unknown and direction changes always neutralize until stable.
-            required = (2 if decision.source == "arkit_lidar" else 3) if self.mode == "obstacle" else 2
-            stable = decision.direction != "unknown" and self.candidate_count >= required
+            required = (
+                (2 if decision.source == "arkit_lidar" else 1)
+                if self.mode == "obstacle"
+                else 2
+            )
+            stable = (
+                decision.direction != "unknown" and self.candidate_count >= required
+            )
             direction = decision.direction if stable else "unknown"
             if decision.source == "arkit_lidar":
                 scene = decision.scene or {}
@@ -147,12 +155,14 @@ class Controller:
                 blocked = scene.get("near_obstacles", {})
                 # Keep a previous cue only while CURRENT measurements still
                 # support it. Missing evidence or a hazard overrides dwell.
-                supported = (self.direction in {"left", "center", "right"}
-                             and free.get(self.direction, 0) >= .8
-                             and not blocked.get(self.direction, True)
-                             and not scene.get("emergency_stop", False)
-                             and scene.get("tracking") == "normal")
-                if supported and (not stable or now - self.last_turn_at < .8):
+                supported = (
+                    self.direction in {"left", "center", "right"}
+                    and free.get(self.direction, 0) >= 0.8
+                    and not blocked.get(self.direction, True)
+                    and not scene.get("emergency_stop", False)
+                    and scene.get("tracking") == "normal"
+                )
+                if supported and (not stable or now - self.last_turn_at < 0.8):
                     direction = self.direction
                 if direction != self.direction:
                     self.last_turn_at = now
@@ -164,8 +174,11 @@ class Controller:
             # A genuinely measured hazard must be announced even when no safe
             # turn can be proposed or the two-frame turn confirmation is pending.
             # Keep servo neutral; do NOT convert warning into a steering cue.
-            hazard = (decision.source == "arkit_lidar" and decision.scene is not None
-                      and decision.scene.get("hazard_detected", False))
+            hazard = (
+                decision.source == "arkit_lidar"
+                and decision.scene is not None
+                and decision.scene.get("hazard_detected", False)
+            )
             self.phrase = decision.phrase if stable or hazard else phrase_for("unknown")
             if stable and direction != decision.direction:
                 self.phrase = f"Candidate sightline {direction} remains measured. Route not verified."
@@ -176,7 +189,11 @@ class Controller:
             # Camera inference and transport can take longer than manual button events.
             # A missing camera stream still expires and commands neutral. The ESP32
             # retains its independent 800 ms servo-neutral watchdog.
-            timeout = max(self.s.input_timeout, 1.6) if self.mode == "obstacle" else self.s.input_timeout
+            timeout = (
+                max(self.s.input_timeout, 1.6)
+                if self.mode == "obstacle"
+                else self.s.input_timeout
+            )
             if self.armed and time.monotonic() - self.last_input > timeout:
                 self.armed = False
                 self.generation += 1
@@ -197,12 +214,21 @@ class Controller:
             from .spatial_voice import local_answer
 
             fresh = self.armed and time.monotonic() - self.last_frame_at < 0.7
-            return local_answer(question, self.last_decision if fresh else None, self.phrase)
+            return local_answer(
+                question, self.last_decision if fresh else None, self.phrase
+            )
         text = question.strip().lower().rstrip("?.!")
         if text not in {"status", "clear path", "what is ahead", "what's ahead"}:
-            return {"phrase": "Object finding unavailable in baseline.", "source": "rules"}
+            return {
+                "phrase": "Object finding unavailable in baseline.",
+                "source": "rules",
+            }
         if not self.armed:
             return {"phrase": "Disarmed. Hold position.", "source": "rules"}
         if time.monotonic() - self.last_input > self.s.input_timeout:
             return {"phrase": "Input expired. Hold position.", "source": "rules"}
-        return {"phrase": self.phrase, "source": "rules", "semantic_scene_understanding": False}
+        return {
+            "phrase": self.phrase,
+            "source": "rules",
+            "semantic_scene_understanding": False,
+        }

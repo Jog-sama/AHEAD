@@ -16,12 +16,12 @@ from .vision import Decision, decode_frame
 LANES = ("left", "center", "right")
 
 
-def choose_direction(free, blocked, confidence, threshold=0.82):
+def choose_direction(free, blocked, confidence, threshold=0.75):
     """Scores are evidence fractions, NOT probabilities of traversability."""
     values = np.asarray([*free, *blocked, confidence], dtype=float)
     if not np.isfinite(values).all() or ((values < 0) | (values > 1)).any():
         return "unknown", "Invalid scene evidence"
-    if confidence < 0.65:
+    if confidence < 0.55:
         return "unknown", "Insufficient floor/depth evidence"
     usable = [free[i] >= threshold and blocked[i] < 0.12 for i in range(3)]
     if usable[1]:
@@ -43,7 +43,9 @@ def unknown(reason, scene=None, source="obstacle_opencv"):
         source = "yolo_depth_opencv"
     if scene is not None:
         scene.setdefault("confidence", 0.0)
-    return Decision("unknown", "Uncertain. Hold position.", reason, source=source, scene=scene)
+    return Decision(
+        "unknown", "Uncertain. Hold position.", reason, source=source, scene=scene
+    )
 
 
 class NeuralModels:
@@ -61,9 +63,13 @@ class NeuralModels:
         self.torch, self.device = torch, device
         torch.set_num_threads(2)
         self.yolo = YOLO(str(yolo_path))
-        self.processor = AutoImageProcessor.from_pretrained(depth_path, local_files_only=True)
+        self.processor = AutoImageProcessor.from_pretrained(
+            depth_path, local_files_only=True
+        )
         self.depth = (
-            AutoModelForDepthEstimation.from_pretrained(depth_path, local_files_only=True)
+            AutoModelForDepthEstimation.from_pretrained(
+                depth_path, local_files_only=True
+            )
             .to(device)
             .eval()
         )
@@ -74,9 +80,9 @@ class NeuralModels:
         from PIL import Image
 
         h, w = image.shape[:2]
-        result = self.yolo.predict(image, imgsz=320, conf=0.30, device=self.device, verbose=False)[
-            0
-        ]
+        result = self.yolo.predict(
+            image, imgsz=320, conf=0.30, device=self.device, verbose=False
+        )[0]
         objects = []
         for box in result.boxes:
             xy = box.xyxy[0].cpu().numpy() / [w, h, w, h]
@@ -98,7 +104,9 @@ class NeuralModels:
 
 
 class ObstacleVision:
-    def __init__(self, models=None, threshold=0.82, unavailable_reason=None, semantic=None):
+    def __init__(
+        self, models=None, threshold=0.75, unavailable_reason=None, semantic=None
+    ):
         self.models, self.threshold = models, threshold
         self.unavailable_reason = unavailable_reason
         self.semantic = semantic
@@ -107,7 +115,7 @@ class ObstacleVision:
     def from_env(cls):
         yolo = os.getenv("TV_YOLO_MODEL", "models/yolo11n.pt")
         depth = os.getenv("TV_DEPTH_MODEL", "models/depth-anything-v2-small")
-        threshold = {"conservative": 0.82, "strict": 0.90}.get(
+        threshold = {"conservative": 0.75, "strict": 0.90}.get(
             os.getenv("TV_SENSITIVITY", "conservative")
         )
         if threshold is None:
@@ -119,6 +127,7 @@ class ObstacleVision:
             semantic = None
             if os.getenv("TV_RGB_SEGMENTER", "none") == "segformer":
                 from .semantic_floor import SegformerFloor
+
                 semantic = SegformerFloor(
                     os.getenv("TV_SEMANTIC_MODEL", "models/segformer-ade20k-b0"),
                     os.getenv("TV_MODEL_DEVICE", "cpu"),
@@ -137,11 +146,15 @@ class ObstacleVision:
             "sharpness": round(float(cv2.Laplacian(gray, cv2.CV_64F).var()), 1),
         }
         if gray.mean() < 25 or gray.mean() > 235 or quality["sharpness"] < 12:
-            return unknown("Dark, overexposed, blank or blurred frame", {"quality": quality})
+            return unknown(
+                "Dark, overexposed, blank or blurred frame", {"quality": quality}
+            )
         # Appearance baseline only: no semantic classes/depth, never authorizes movement.
         if self.models is None:
             edges = cv2.Canny(gray, 60, 140)
-            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, _ = cv2.findContours(
+                edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
             regions = []
             for c in contours:
                 x, y, w, h = cv2.boundingRect(c)
@@ -166,7 +179,9 @@ class ObstacleVision:
             )
         try:
             objects, inverse_depth = self.models.infer(image)
-            semantic_mask = self.semantic.floor_mask(image) if self.semantic is not None else None
+            semantic_mask = (
+                self.semantic.floor_mask(image) if self.semantic is not None else None
+            )
             return self.analyze(image, objects, inverse_depth, quality, semantic_mask)
         except Exception as exc:
             return unknown(
@@ -205,11 +220,15 @@ class ObstacleVision:
                     max(0, int(x1) - pad) : min(w, int(x2) + pad + 1),
                 ] = 1
             obj["clock"] = (
-                "10" if (x1 + x2) / 2 < w / 3 else "2" if (x1 + x2) / 2 > 2 * w / 3 else "12"
+                "10"
+                if (x1 + x2) / 2 < w / 3
+                else "2" if (x1 + x2) / 2 > 2 * w / 3 else "12"
             )
         scene["blocked"] = {
             name: float(
-                obstacle[int(h * 0.5) : int(h * 0.92), int(w * i / 3) : int(w * (i + 1) / 3)].mean()
+                obstacle[
+                    int(h * 0.5) : int(h * 0.92), int(w * i / 3) : int(w * (i + 1) / 3)
+                ].mean()
             )
             for i, name in enumerate(LANES)
         }
@@ -222,7 +241,8 @@ class ObstacleVision:
             lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
             seed = lab[int(h * 0.88) : int(h * 0.98), int(w * 0.12) : int(w * 0.88)]
             seed_ok = (
-                obstacle[int(h * 0.88) : int(h * 0.98), int(w * 0.12) : int(w * 0.88)] == 0
+                obstacle[int(h * 0.88) : int(h * 0.98), int(w * 0.12) : int(w * 0.88)]
+                == 0
             )
             if seed_ok.mean() < 0.45:
                 return unknown("Foreground occludes floor reference", scene)
@@ -249,7 +269,9 @@ class ObstacleVision:
         fit_error = float(np.median(np.abs(residual)))
         scene["floor_fit"] = {"slope": float(slope), "median_error": fit_error}
         if slope < 0.45 or fit_error > 0.12:
-            return unknown("Floor geometry uncertain; wall/tilt/uneven surface possible", scene)
+            return unknown(
+                "Floor geometry uncertain; wall/tilt/uneven surface possible", scene
+            )
         expected = slope * np.arange(h)[:, None] / h + intercept
         geometric = np.abs(depth - expected) < 0.18
         # Depth deviations detect unnamed obstacles; negative deviations also reject drops.
@@ -284,4 +306,6 @@ class ObstacleVision:
             "center": "Center estimated open. Check visually.",
             "unknown": "Uncertain. Hold position.",
         }[direction]
-        return Decision(direction, phrase, reason, tuple(free), "yolo_depth_opencv", scene)
+        return Decision(
+            direction, phrase, reason, tuple(free), "yolo_depth_opencv", scene
+        )

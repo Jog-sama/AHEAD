@@ -36,6 +36,8 @@ jobs:
             echo "--- DATASET $f ---"
             unzip -Z1 "$f" | head -50
           done
+      - name: Run real RGB-D sample inference and report unknowns
+        run: python -m scripts.real_rgbd_audit /tmp/rgbd
       - name: Validate sample payload integrity
         run: |
           python - <<'PY'

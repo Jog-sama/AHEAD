@@ -99,3 +99,35 @@ def test_memory_bounded(monkeypatch):
     assert result.scene["navigation_map"]["frames"] <= 9
     nav.reset()
     assert nav.navigation.frames == deque()
+
+
+def test_old_sightline_cannot_authorize_route_after_current_occlusion():
+    """Old observations may veto a turn, never authorize a currently unseen one."""
+    import time
+    from backend.navigation_map import TemporalNavigationMap, _Frame
+
+    packet = ARKitPacket.model_validate(make_packet())
+    nav = TemporalNavigationMap()
+    origin, forward, right = nav._basis(packet)
+    now = time.monotonic()
+    # Dense, three-dimensional world-space visibility sampled near and mid.
+    center_points = np.array([
+        origin + x * right + z * forward
+        for z in (.50, .66, .79, 1.00, 1.16, 1.32)
+        for x in (-.16, 0., .16)
+    ])
+    nav.frames.append(_Frame(now, origin.copy(), center_points,
+                             np.full(len(center_points), 3, dtype=np.int8)))
+    first = nav.evaluate(packet, now)
+    assert first["direction"] == "center", first
+    # Phone now sees a different region; the historical center ray evidence
+    # still exists, but must not be treated as CURRENT permission to proceed.
+    side_points = np.array([
+        origin - 1.25 * right + z * forward for z in (.5, .7, 1.0, 1.2)
+    ])
+    nav.frames.append(_Frame(now + .1, origin.copy(), side_points,
+                             np.full(len(side_points), 3, dtype=np.int8)))
+    second = nav.evaluate(packet, now + .1)
+    assert second["direction"] == "unknown", second
+    assert second["evidence"]["center"]["current_support"] is False
+    assert second["frames"] == 2

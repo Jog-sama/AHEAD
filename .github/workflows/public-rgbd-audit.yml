@@ -1,0 +1,44 @@
+name: Public RGB-D dataset audit
+on:
+  push:
+    branches: [navigation-temporal-map-v1]
+    paths:
+      - '.github/workflows/public-rgbd-audit.yml'
+      - 'scripts/real_rgbd_audit.py'
+  workflow_dispatch:
+
+jobs:
+  sample-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline depth readers
+        run: python -m pip install pillow numpy opencv-python-headless
+      - name: Download three independent public depth datasets and Redwood sequence
+        run: |
+          mkdir -p /tmp/rgbd
+          curl -fLsS --retry 3 --max-time 120 https://github.com/isl-org/open3d_downloads/releases/download/20220201-data/SampleTUMRGBDImage.zip -o /tmp/rgbd/tum.zip
+          curl -fLsS --retry 3 --max-time 120 https://github.com/isl-org/open3d_downloads/releases/download/20220201-data/SampleNYURGBDImage.zip -o /tmp/rgbd/nyu.zip
+          curl -fLsS --retry 3 --max-time 120 https://github.com/isl-org/open3d_downloads/releases/download/20220201-data/SampleSUNRGBDImage.zip -o /tmp/rgbd/sun.zip
+          curl -fLsS --retry 3 --max-time 120 https://github.com/isl-org/open3d_downloads/releases/download/20220301-data/SampleRedwoodRGBDImages.zip -o /tmp/rgbd/redwood.zip
+      - name: Inspect archive members and depth metadata
+        run: |
+          for f in /tmp/rgbd/*.zip; do
+            echo "--- DATASET $f ---"
+            unzip -Z1 "$f" | head -50
+          done
+      - name: Validate sample payload integrity
+        run: |
+          python - <<'PY'
+          from zipfile import ZipFile
+          from glob import glob
+          for filename in glob('/tmp/rgbd/*.zip'):
+              with ZipFile(filename) as z:
+                  corrupt=z.testzip()
+                  if corrupt is not None: raise RuntimeError(f'Corrupt zip {filename}: {corrupt}')
+                  print(filename,len(z.namelist()),'members OK')
+          PY

@@ -25,5 +25,10 @@ jobs:
         run: python -m pytest -q tests/test_navigation_map.py tests/test_arkit_depth.py tests/test_lidar_floorless.py tests/test_lidar_responsiveness.py
       - name: Run full backend test suite
         run: python -m pytest -q
-      - name: Randomized LiDAR stress audit (report all critical misses)
-        run: python -m scripts.stress_navigation --cases 180 --seed 20261107 --fail-on-critical
+      - name: Randomized LiDAR stress audit (multiple independent seeds)
+        run: |
+          status=0
+          for seed in 20261107 20261108 20261109 271828 314159; do
+            python -m scripts.stress_navigation --cases 180 --seed "$seed" --fail-on-critical || status=1
+          done
+          exit "$status"

@@ -146,6 +146,15 @@ class TemporalNavigationMap:
         relative = points - origin
         z = relative @ heading
         x = relative @ right
+        # History can veto a route, but must not AUTHORIZE a new route when the
+        # latest frame no longer observes that corridor (e.g., sudden yaw,
+        # occlusion, moving past an opening). Historical visibility alone is
+        # particularly dangerous because it does not prove ground clearance.
+        fresh = self.frames[-1]
+        fresh_relative = fresh.points - origin
+        fresh_z = fresh_relative @ heading
+        fresh_x = fresh_relative @ right
+        fresh_kinds = fresh.kinds
         details, blocked, supported, scores, nearest = {}, {}, {}, {}, {}
 
         for lane, slope in SLOPES.items():
@@ -171,9 +180,24 @@ class TemporalNavigationMap:
             b = max(mid["floor_cells"] / 3.0, mid["line_of_sight_cells"] / 5.0)
             score = round(min(1.0, a) * 0.45 + min(1.0, b) * 0.55, 3)
             scores[lane] = 0.0 if obstacle else score
-            supported[lane] = score >= 0.68 and not obstacle
+            fresh_corridor = ((fresh_z >= 0.35) & (fresh_z <= 2.1)
+                              & (np.abs(fresh_x - slope * fresh_z) <= HALF_WIDTH))
+            fresh_bands = []
+            for lo, hi in BANDS[:2]:
+                current = fresh_corridor & (fresh_z >= lo) & (fresh_z < hi)
+                ground = len(self._cells(fresh_x, fresh_z, current & (fresh_kinds == 2)))
+                visible = len(self._cells(fresh_x, fresh_z, current & (fresh_kinds == 3)))
+                fresh_bands.append({
+                    "floor_cells": ground, "line_of_sight_cells": visible,
+                    "supported": ground >= 2 or visible >= 2,
+                })
+            # Require recent, independent depth support in BOTH near bands.
+            # An old, possibly stale map may still mark a hazard as blocked.
+            current_support = all(b["supported"] for b in fresh_bands)
+            supported[lane] = score >= 0.68 and not obstacle and current_support
             details[lane] = {
                 "bands": band_stats, "quality": score,
+                "fresh_bands": fresh_bands, "current_support": current_support,
                 "candidate_sightline_only": not any(d["floor_cells"] for d in band_stats),
             }
 

@@ -13,7 +13,7 @@ flowchart TD
     API -->|"Short status cue"| Phone
 ```
 
-The phone never talks to the ESP32. Stop increments a generation, so an in-flight camera decision cannot override it. Obstacle mode needs three consistent frames to move; an uncertain scene goes neutral at once. Input older than 700 ms (1.6 s in obstacle mode) disarms the backend, and the ESP32 independently returns to neutral after 800 ms without a command. Neutral still holds torque: unplug servo power to clear a jam.
+On this path the phone never talks to the ESP32. On the phone path the Ahead app makes the same decision from its LiDAR corridor and writes the angle to [firmware/thumb](../firmware/thumb/README.md) over Bluetooth; the differences are listed above the cue in `ios/Ahead/index.html` and checked by `tests/test_thumb_cue.py`. Stop increments a generation, so an in-flight camera decision cannot override it. Obstacle mode needs three consistent frames to move; an uncertain scene goes neutral at once. Input older than 700 ms (1.6 s in obstacle mode) disarms the backend, and the ESP32 independently returns to neutral after 800 ms without a command. Neutral still holds torque: unplug servo power to clear a jam.
 
 ## API
 
@@ -36,6 +36,7 @@ Every `/api/*` route requires `X-API-Key`; `/health` is public. Firmware `/steer
 - `backend/` FastAPI, detectors, device transport, control state
 - `web/` the phone page, no build step
 - `firmware/TactileVector/` sketch, safety policy, example config
+- `firmware/thumb/` the same servo as a BLE peripheral for the Ahead app, which decides the cue on the phone
 - `ios/Ahead/` Ahead's app page, bundled by phone-bridge's `Ahead` target and published to jonasneves.com/bridge/ahead/
 - `firmware/cane/` Ahead's cane board: PlatformIO, ESP32-C3 or DevKit V1, BLE peripheral
 - `scripts/` configure, demo, ESP32 simulator, smoke tests, model preparation

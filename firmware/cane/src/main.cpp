@@ -63,6 +63,7 @@ constexpr unsigned long kLongPressMs = 600;
 constexpr unsigned long kStatusEveryMs = 5000;
 constexpr unsigned long kSensorStaleMs = 1000;
 constexpr unsigned long kPulseMs = 100;
+constexpr unsigned long kArmedMs = 300;  // one buzz, three pulses long, when the first phone connects
 constexpr unsigned long kPeriodMs = 200;
 constexpr uint8_t kBatteryUnknown = 0xFF;
 constexpr uint8_t kFlagFault = 1, kFlagPhone = 2, kFlagSettled = 4;
@@ -313,6 +314,7 @@ void loop() {
   static uint8_t sent_status[3] = {0, 0, 0};
   static uint16_t settle_mm = kNoReading;
   static unsigned long settle_at = 0;
+  static unsigned long armed_at = 0;
   esp_task_wdt_reset();
   unsigned long now = millis();
 
@@ -349,7 +351,10 @@ void loop() {
     played = next;
     phase_at = now;  // a change starts with a pulse
   }
-  digitalWrite(CANE_MOTOR_PIN, played && (now - phase_at) % kPeriodMs < kPulseMs);
+  // Silence before this buzz means the cane is not warning yet; the LED says the same only to someone who can see it.
+  if (paired && !armed_at) armed_at = now | 1;
+  bool armed_buzz = armed_at && now - armed_at < kArmedMs;
+  digitalWrite(CANE_MOTOR_PIN, armed_buzz || (played && (now - phase_at) % kPeriodMs < kPulseMs));
   digitalWrite(CANE_LED_PIN, connected ? CANE_LED_ON : !CANE_LED_ON);
 
   pollButton(now);

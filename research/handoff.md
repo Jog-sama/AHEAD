@@ -56,7 +56,8 @@ Convergence counts the three external families. Claims marked "verified" were re
 7. BLE only at runtime; the Wi-Fi AP and MCP server stay on the bench.
 8. Silence never means "clear". Distinct pattern on BLE drop, ARKit tracking loss, low battery; then quiet. Dead
    battery = ordinary cane. Motor gate pulled low on brown-out.
-9. Reuse wayfinding (VoiceVista / Soundscape Community, BlindSquare); NFC or iBeacon only as personal landmarks.
+9. Reuse wayfinding (VoiceVista / Soundscape Community, BlindSquare). NFC personal landmarks were built, then cut on
+   2026-11-08 (Jonas's choice): outside the chest-and-head-height story.
 10. Blindfolded testing yields engineering metrics (false alarms per 100 m, lead distance, latency, thermal), not
     usefulness. Say so in the write-up. Verified: Martinez 2014.
 11. If ever distributed: 21 CFR 886.5900 "electronic vision aid", Class I, 510(k)-exempt (verified at LII). A
@@ -103,7 +104,7 @@ brown-out-safe. Bench-log ranges in sun, shade, rain, glass, foliage, signposts.
 lead distance at 1.2 m/s, latency, mA, thermal.
 Week 2: button → push-to-ask: ARKit burst + still photo, template answer within 1 s, optional cloud with the
 guardrails; Magnifier Detection Mode on the same route as baseline; one-hour battery/thermal log.
-Week 3: fuse (phone agreement raises urgency, never suppresses a cane alert), watchdog patterns, NFC landmark, hour
+Week 3: fuse (phone agreement raises urgency, never suppresses a cane alert), watchdog patterns, hour
 walk with NASA-TLX, write-up stating usefulness is unvalidated without blind testers. Defer YOLO, segmentation,
 downward ToF, fall detection, wayfinding.
 

@@ -19,5 +19,7 @@ Free text, one line each:
 - What did a pulse mean to you?
 - Did you ever confuse the phone with the cane tip?
 - What did you want to ask that it could not tell you?
+- Could you feel the slow pulses through your clothes in this mount?
+- If sound was on: did the tones cover traffic or voices, and did you want one before 1 m?
 
 For comparison, the 2026 Scientific Reports study of 13 blind cane users found BuzzClip raised TLX from 3.18 to 6.22 on a 10-point version and frustration from 2.77 to 7.54 (PMC12909938). Those were blind users; ours are blindfolded, so compare conditions against each other, not against that study.

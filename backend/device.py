@@ -94,7 +94,7 @@ class HttpDevice:
 
 
 class MockDevice:
-    """Software-only timeout model, not a claim about a physical servo."""
+    """Software-only timeout model; no physical servo."""
 
     def __init__(self):
         self.angle = 90

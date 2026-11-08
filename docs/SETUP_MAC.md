@@ -2,7 +2,7 @@
 
 ## 1. Python
 
-Use Terminal inside the extracted project folder. Homebrew must already be installed; use its official installer if needed. These commands are for the user's Mac, not claims they ran on it during this task.
+Use Terminal inside the extracted project folder. Homebrew must already be installed; use its official installer if needed.
 
 ```bash
 brew install python@3.12 mkcert arduino-cli

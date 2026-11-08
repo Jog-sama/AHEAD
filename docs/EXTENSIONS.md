@@ -1,8 +1,6 @@
-> **Obstacle upgrade:** Start with [MIGRATION.md](../MIGRATION.md). See docs/UPGRADE_AUDIT.md and docs/SPONSOR_SETUP.md for current capabilities. The original baseline documentation below is retained for compatibility; statements that neural vision and sponsor wiring are absent describe the prior version.
-
 # Optional voice, neural vision, and sponsor extensions
 
-## Voice MVP, honest default
+## Voice, default behaviour
 
 The base UI provides concise spoken status through browser speech synthesis. Text is always visible; a separate Speak button lets the user retry under Safari's user-gesture restrictions. It accepts typed “status”, “clear path”, “what is ahead” and “what's ahead”. Unknown questions return “Object finding unavailable in baseline.” There is no invented distance or door detection.
 
@@ -30,9 +28,9 @@ A useful next implementation is a separate local module/worker that returns dire
 
 ## Thinking Machines Tinker
 
-Official docs checked during this task: [Using Inkling](https://tinker-docs.thinkingmachines.ai/cookbook/inkling/), [models](https://tinker-docs.thinkingmachines.ai/tinker/models/), [Tinker overview](https://tinker-docs.thinkingmachines.ai/). The cookbook documents image inputs, audio support for Inkling/Inkling-Small and shows `thinkingmachines/Inkling-2-Small`. Model-list naming is not perfectly aligned; verify the actual model accessible to the team's credentials at integration time. Do not treat the transcript's model ID/credits as proof the account can run it.
+Official docs: [Using Inkling](https://tinker-docs.thinkingmachines.ai/cookbook/inkling/), [models](https://tinker-docs.thinkingmachines.ai/tinker/models/), [Tinker overview](https://tinker-docs.thinkingmachines.ai/). The cookbook documents image inputs, audio support for Inkling/Inkling-Small and shows `thinkingmachines/Inkling-2-Small`. Model-list naming is not perfectly aligned; verify the actual model accessible to the team's credentials at integration time.
 
-`SceneVoiceAdapter` and `TinkerPending` are local boundaries only. No unofficial REST route, trained checkpoint, model response, or credit consumption is fabricated. Before implementing:
+`SceneVoiceAdapter` and `TinkerPending` are local boundaries only. No Tinker model is called yet. Before implementing:
 
 1. Obtain actual authorized account credentials in an ignored local environment file and query official server capabilities using the supported SDK.
 2. Follow the official current `tml-renderers` examples for image/audio packing; do not assume the FastAPI raw audio container is directly accepted by the model API.
@@ -40,7 +38,7 @@ Official docs checked during this task: [Using Inkling](https://tinker-docs.thin
 4. Fine-tune/evaluate short responses, hallucination/unknown rate and measured timing. Retain baseline model and tuned checkpoints, training logs, costs and a held-out comparison.
 5. Implement the adapter only after an authenticated sampling call works. Keep semantic answers off the time-critical motor loop; reject unsupported metric distances.
 
-The task does not claim a trained Tinker model or sponsor qualification.
+There is no trained Tinker model yet.
 
 ## Entrinsik Informer
 

@@ -38,7 +38,7 @@ After reboot Serial prints either `SAFE DISABLED` (no PWM) or `PWM ready; neutra
 ## Endpoint contract
 
 - `GET /health`: no actuation, JSON status.
-- `GET /steer?angle=90` with `X-Device-Token`: exactly one integer, inclusive 60..120. Decimal/sign/garbage/extra/duplicate arguments are rejected. The proposed Gemini `buzz=1` parameter is deliberately not implemented.
+- `GET /steer?angle=90` with `X-Device-Token`: exactly one integer, inclusive 60..120. Decimal/sign/garbage/extra/duplicate arguments are rejected. There is no `buzz` parameter.
 - Command token does not go in the URL. No credentials are printed on Serial.
 - Only valid, accepted commands refresh the firmware timeout. Polling health or sending bad requests cannot keep an old direction alive.
 - On timeout (800ms from last accepted command) or Wi-Fi loss, an independent FreeRTOS task requests neutral. It checks about every 10ms; scheduling and physical motion time are not guaranteed or measured here. Network reconnect does not restore the previous angle.

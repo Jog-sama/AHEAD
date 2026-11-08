@@ -83,7 +83,7 @@ async def train(args, rows, held):
             indent=2,
         )
     )
-    print("Saved checkpoint metadata. Evaluate held-out scenes before demo claims.")
+    print("Saved checkpoint metadata. Evaluate on held-out scenes before using it in a demo.")
 
 
 def main():

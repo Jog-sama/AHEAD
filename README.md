@@ -67,7 +67,7 @@ Open the printed URL on the iPhone, or `http://127.0.0.1:8000` on the Mac, and p
 
 Safari needs an HTTPS origin for camera, microphone and speech, which is what the tunnel provides; it needs no Cloudflare account. The URL changes each run. For the lowest frame latency use the LAN with a locally trusted certificate instead: [docs/SETUP_MAC.md](docs/SETUP_MAC.md).
 
-Obstacle mode needs the models once: `pip install -r requirements-perception.txt && python -m scripts.prepare_vision`. Options live in `.env` (`TV_OBSTACLE_ENGINE`, `TV_MODEL_DEVICE`); defaults and the upgrade path for an existing install are in [MIGRATION.md](MIGRATION.md).
+Obstacle mode needs the models once: `pip install -r requirements-perception.txt && python -m scripts.prepare_vision`. Options live in `.env`: `TV_OBSTACLE_ENGINE` (`neural`, the default, or `opencv`) and `TV_MODEL_DEVICE` (`cpu`, the default, or `mps`).
 
 ## Hardware
 
@@ -88,7 +88,6 @@ Ahead covers chest and head height, where a cane does not reach: iPhone LiDAR in
 
 | Part | Where |
 | --- | --- |
-| `research/` | the brief, four model reports, and `handoff.md` with the synthesis and which claims were checked against primary sources |
 | `eval/` | walking protocol, sensor bench log, NASA-TLX, and `analyze.py` for the CSV the app exports |
 | `worker/` | the Cloudflare Worker behind Ask: photo plus LiDAR readings in, one spoken sentence out; `npm test` checks the two rules offline; `npx wrangler deploy` |
 | `ios/Ahead/` | the iPhone app's page, its whole interface; TestFlight https://testflight.apple.com/join/RuyPSTNZ. The native shell is the `Ahead` target of jonasneves/phone-bridge (private, ask for access) |

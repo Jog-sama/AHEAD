@@ -30,10 +30,10 @@ npm run workspace:init
 npm run dev
 npm run deploy
 ```
-The dashboard includes the app's Postgres-backed observations, optional OpenStreetMap location pins and a seven-day count summary. Map tiles load only when requested. Duke is merely the initial map center, never a fabricated event location. Deployment and tenant Postgres execution were not performed here. JavaScript build and handler tests passed.
+The dashboard includes the app's Postgres-backed observations, optional OpenStreetMap location pins and a seven-day count summary. Map tiles load only when requested. Duke is merely the initial map center, never a fabricated event location. Deployment to a tenant and its Postgres have not been tested. JavaScript build and handler tests passed.
 
 After deploying, retrieve the exact signed hazards webhook URL from your app's webhooks listing (`GET /api/apps/{id}/webhooks`). In the MAIN Python project's .env set TV_INFORMER_WEBHOOK_URL to that URL and TV_INFORMER_AUTO_SEND=1. Restart. Verify one candidate is delivered and duplicate event IDs create only one row. Sender credentials stay on the Mac. Do not paste the signed URL into the phone UI.
 
-No facilities emails, work orders or weekly AI agent are created. Seven-day summaries are deterministic SQL, not an untested AI-agent claim.
+It sends no facilities emails or work orders. The seven-day summary is a plain SQL query.
 
 References: https://docs.entrinsik.com/developer/apps/reference/webhooks/ ; https://docs.entrinsik.com/developer/apps/reference/server-routes/ ; https://docs.entrinsik.com/developer/apps/reference/workspace-cli/

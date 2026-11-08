@@ -1,4 +1,4 @@
-"""The Ahead page's thumb cue against the Mac's LiDAR decision, on synthetic scenes; no claim about real sensing.
+"""The Ahead page's thumb cue against the Mac's LiDAR decision, on synthetic scenes, not real sensing.
 
 Each scene is rendered once as an ARKit depth map. backend/arkit_depth.py decides from the raw map; the page decides
 from the corridor the Ahead app's shell would compute from the same map (Bridge/Depth.swift in phone-bridge,

@@ -1,4 +1,4 @@
-"""Experimental monocular scene estimates. No metric depth or safe-route claims.
+"""Experimental monocular scene estimates: no metric depth and no guaranteed safe route.
 
 Neural models provide object classes and relative inverse depth. OpenCV checks
 appearance-connected floor support; a robust depth/row fit rejects flat walls.

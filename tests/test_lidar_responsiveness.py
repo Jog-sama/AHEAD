@@ -24,7 +24,7 @@ def test_center_open_when_far_floor_unobserved():
 
 
 @pytest.mark.parametrize(("obstacle", "expected"), [
-    ((-1.15, -0.45), "right"), ((0.45, 1.15), "left"),
+    ((-1.15, -0.45), "center"), ((0.45, 1.15), "center"),
 ])
 def test_offset_obstacle_steers_away_with_missing_far_floor(obstacle, expected):
     pkt = make_packet(obstacle)

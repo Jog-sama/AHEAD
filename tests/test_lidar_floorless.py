@@ -14,8 +14,8 @@ from tests.test_arkit_depth import make_packet
 
 @pytest.mark.parametrize(("obstacle", "expected"), [
     (None, "center"),
-    ((-1.15, -0.45), "right"),
-    ((0.45, 1.15), "left"),
+    ((-1.15, -0.45), "center"),
+    ((0.45, 1.15), "center"),
     ((-0.3, 0.3), "unknown"),
 ])
 def test_floorless_direct_depth(obstacle, expected):

@@ -10,6 +10,7 @@ import binascii
 import json
 import math
 import os
+import threading
 from dataclasses import dataclass
 
 import numpy as np
@@ -17,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from .obstacles import LANES, choose_direction, unknown
 from .vision import Decision, decode_frame
+from .navigation_map import TemporalNavigationMap
 
 # Depth maps are deliberately downsampled on the phone to bound CPU, JSON size and latency.
 MAX_FRAME_BYTES = 900_000
@@ -264,6 +266,12 @@ def estimate_depth_sightlines(forward, lateral, relative_height, good, camera_he
 class ARKitDepthVision:
     def __init__(self, models=None):
         self.models = models
+        self.navigation = TemporalNavigationMap()
+        self._navigation_lock = threading.Lock()
+
+    def reset(self) -> None:
+        with self._navigation_lock:
+            self.navigation.reset()
 
     def predict(self, packet: ARKitPacket) -> Decision:
         # Validate image even when not running YOLO, and prevent disorientation
@@ -284,6 +292,7 @@ class ARKitDepthVision:
             "warning": "Depth sightlines are NOT verified walking routes; missing returns can hide hazards",
         }
         if packet.tracking != "normal":
+            self.reset()
             return unknown("ARKit camera tracking not stable", scene, "arkit_lidar")
         try:
             forward, lateral, relative_height, good = unproject_camera_relative(packet)
@@ -291,6 +300,7 @@ class ARKitDepthVision:
             return unknown(str(exc), scene, "arkit_lidar")
         scene["valid_depth_fraction"] = round(float(good.mean()), 3)
         if np.count_nonzero(good) < 40:
+            self.reset()
             return unknown("Insufficient reliable LiDAR returns", scene, "arkit_lidar")
 
         camera_height = None
@@ -373,18 +383,69 @@ class ARKitDepthVision:
         scene["floor_coverage_warning"] = None if camera_height is not None else (
             "Floor not tracked; depth sees obstacles but cannot verify drop-offs or steps"
         )
-        direction, reason = choose_direction(free, blocked, 1.0 if any(free) else 0.0, 0.82)
-        nearest = scene["nearest_obstacle_m"].get("center")
-        scene["emergency_stop"] = nearest is not None and nearest < .55
-        if scene["emergency_stop"]:
-            direction = "unknown"
+        if os.getenv("TV_NAV_POLICY", "temporal") == "legacy":
+            direction, reason = choose_direction(free, blocked, 1.0 if any(free) else 0.0, 0.82)
+        else:
+            # The recent depth history is held in world space and reprojected
+            # against the current phone pose to avoid per-frame lane flicker.
+            with self._navigation_lock:
+                nav = self.navigation.update(
+                    packet, forward, lateral, relative_height, good, camera_height
+                )
+            scene["navigation_map"] = {
+                "frames": nav["frames"], "scores": nav["scores"],
+                "evidence": nav["evidence"], "reason": nav["reason"],
+                "warning": nav["warning"],
+                "near_coverage": {
+                    k: {
+                        "measured_depth_points": nav["evidence"].get(k, {}).get(
+                            "measured_near_depth_points", 0),
+                        "confirmed": nav["evidence"].get(k, {}).get(
+                            "near_coverage_confirmed", False),
+                    }
+                    for k in LANES
+                },
+            }
+            # Current hazards take precedence over historical evidence, while
+            # previous obstacles remain visible through brief depth dropouts.
+            near_obstacles = {
+                k: near_obstacles[k] or nav["blocked"][k] for k in LANES
+            }
+            scene["near_obstacles"] = near_obstacles
+            scene["hazard_detected"] = any(near_obstacles.values())
+            existing_nearest = scene.get("nearest_obstacle_m", {})
+            scene["nearest_obstacle_m"] = {
+                k: min(v for v in (existing_nearest.get(k), nav["nearest_obstacle_m"].get(k))
+                       if v is not None)
+                if any(v is not None for v in
+                       (existing_nearest.get(k), nav["nearest_obstacle_m"].get(k)))
+                else None
+                for k in LANES
+            }
+            scene["free_space"] = {
+                k: float(nav["supported"][k] and not near_obstacles[k])
+                for k in LANES
+            }
+            scene["blocked"] = {k: 0.35 if near_obstacles[k] else 0.0 for k in LANES}
+            direction, reason = nav["direction"], nav["reason"]
+            if direction != "unknown" and near_obstacles[direction]:
+                direction, reason = "unknown", "Current obstacle disagrees with historical map"
+            if near_obstacles["center"] and direction == "center":
+                direction, reason = "unknown", "Current center obstruction; hold position"
+            nearest_center = scene["nearest_obstacle_m"].get("center")
+            scene["emergency_stop"] = (
+                nearest_center is not None and nearest_center < 0.55
+            )
+            if scene["emergency_stop"]:
+                direction, reason = "unknown", "Close obstacle ahead; stop"
         if direction == "unknown" and near_obstacles["center"]:
             reason = "Nearby obstacle directly ahead (LiDAR measured); no unambiguous side sightline"
         elif direction == "unknown" and any(near_obstacles.values()):
             reason = "Measured nearby obstacle; no unambiguous alternate sightline"
         elif direction != "unknown":
             reason = f"Measured depth sightline suggests {direction}; walking route NOT verified"
-        scene["confidence"] = round(sum(free) / 3.0, 3) if direction != "unknown" else 0.0
+        scene["confidence"] = (round(sum(scene["free_space"].values()) / 3.0, 3)
+                               if direction != "unknown" else 0.0)
         phrase = {
             "left": "Candidate opening left by LiDAR. Verify before moving.",
             "right": "Candidate opening right by LiDAR. Verify before moving.",

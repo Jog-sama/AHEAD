@@ -130,7 +130,16 @@ class ObstacleVision:
 
     def predict(self, jpeg):
         image = decode_frame(jpeg)
-        image = cv2.resize(image, (320, 240))
+        # Preserve the camera aspect ratio. Forcing every frame to 320x240
+        # stretches portrait iPhone images horizontally and changes lane geometry.
+        h0, w0 = image.shape[:2]
+        scale = 320 / max(h0, w0)
+        interpolation = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
+        image = cv2.resize(
+            image,
+            (max(1, round(w0 * scale)), max(1, round(h0 * scale))),
+            interpolation=interpolation,
+        )
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         quality = {
             "brightness": round(float(gray.mean()), 1),

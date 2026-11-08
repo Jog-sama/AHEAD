@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .adapters import InformerWebhook
 from .arkit_depth import ARKitDepthVision, ARKitPacket, MAX_FRAME_BYTES, parse_packet
+from .navigation_recorder import NavigationRecorder
 from .config import Settings
 from .controller import ControlError, Controller
 from .device import Device, DeviceError, HttpDevice, MockDevice
@@ -83,6 +84,7 @@ def create_app(
     detector = vision or MarkerVision()
     obstacle_detector = obstacle_vision or ObstacleVision.from_env()
     arkit_detector = ARKitDepthVision(getattr(obstacle_detector, "models", None))
+    navigation_recorder = NavigationRecorder.from_env()
     frame_lock = asyncio.Lock()
     speech_lock = asyncio.Lock()
     outbox = hazard_outbox or HazardOutbox(os.getenv("TV_HAZARD_DB", "data/hazards.sqlite3"))
@@ -126,7 +128,10 @@ def create_app(
                     await exporter
             with suppress(DeviceError):
                 await controller.stop("Server shutting down.")
-            await d.close()
+            try:
+                await asyncio.to_thread(navigation_recorder.close)
+            finally:
+                await d.close()
 
     app = FastAPI(
         title="TactileVector",
@@ -227,11 +232,17 @@ def create_app(
 
     @app.post("/api/arm", dependencies=auth)
     async def arm(body: ArmRequest):
-        return await controller.arm(body.mode)
+        async with frame_lock:
+            state = await controller.arm(body.mode)
+            arkit_detector.reset()
+            return state
 
     @app.post("/api/stop", dependencies=auth)
     async def stop():
-        return await controller.stop()
+        state = await controller.stop()
+        async with frame_lock:
+            arkit_detector.reset()
+        return state
 
     @app.post("/api/steer", dependencies=auth)
     async def steer(body: SteerRequest):
@@ -295,6 +306,7 @@ def create_app(
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from exc
             result = await controller.apply_frame(decision, generation, sequence, received_at)
+            navigation_recorder.capture(packet, sequence)
             # Preserve the existing spatial voice/Tinker frame context for native frames.
             latest.update(
                 jpeg=base64.b64decode(packet.jpeg_b64),
@@ -348,7 +360,12 @@ def create_app(
             decision = snapshot.get("decision", controller.last_decision)
             packet = body.packet or snapshot["packet"]
             if body.packet is not None:
-                decision = await asyncio.to_thread(arkit_detector.predict, packet)
+                # Narration is independent of the streaming navigation map.
+                # Do not append a duplicate/old frame to live navigation history.
+                decision = await asyncio.to_thread(
+                    ARKitDepthVision(getattr(obstacle_detector, "models", None)).predict,
+                    packet,
+                )
                 if packet.tracking != "normal":
                     raise HTTPException(409, "Camera tracking unstable; capture again")
             # The image model is run ONLY on demand in a worker thread.

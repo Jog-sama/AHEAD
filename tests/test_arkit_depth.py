@@ -52,8 +52,8 @@ def make_packet(obstacle=None, floor=True, confidence=2, tracking="normal"):
 
 @pytest.mark.parametrize(('obstacle','expected'), [
     (None, 'center'),
-    ((-1.15, -0.45), 'right'),
-    ((0.45, 1.15), 'left'),
+    ((-1.15, -0.45), 'center'),
+    ((0.45, 1.15), 'center'),
     ((-0.3, 0.3), 'unknown'),
 ])
 def test_measured_depth_decisions(obstacle, expected):

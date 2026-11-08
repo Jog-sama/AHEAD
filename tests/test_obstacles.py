@@ -84,7 +84,7 @@ async def test_debounce_reverse_and_unknown(settings):
     decision = Decision("right", "Opening right.", "left blocked", source="test")
     for seq in range(3):
         r = await c.apply_frame(decision, gen, seq, time.monotonic())
-        assert r["commanded_angle"] == (100 if seq == 2 else 90)
+        assert r["commanded_angle"] == (102 if seq == 2 else 90)
     for seq in range(3, 5):
         r = await c.apply_frame(replace(decision, direction="left"), gen, seq, time.monotonic())
         assert r["commanded_angle"] == 90
@@ -139,7 +139,7 @@ def test_obstacle_api_contract_and_voice(settings, tmp_path):
                 headers={**H, "Content-Type": "image/jpeg"},
             )
             assert r.status_code == 200
-        assert r.json()["commanded_angle"] == 100
+        assert r.json()["commanded_angle"] == 102
         assert (
             "10 o'clock"
             in c.post("/api/voice", json={"text": "where is the chair"}, headers=H).json()["phrase"]

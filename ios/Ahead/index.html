@@ -163,8 +163,8 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <section class="card phone-only" aria-label="Thumb lever">
   <div class=pad><p class=stat role=status id=thumb-stat>Thumb lever: not connected.</p></div>
   <div class=pad><button class=btn id=thumb-connect>Connect thumb lever</button></div>
-  <div class=row><label for=thumb-left>Left angle</label><input id=thumb-left type=number inputmode=numeric step=1 min=75 max=105 value=80></div>
-  <div class=row><label for=thumb-right>Right angle</label><input id=thumb-right type=number inputmode=numeric step=1 min=75 max=105 value=100></div>
+  <div class=row><label for=thumb-left>Left angle</label><input id=thumb-left type=number inputmode=numeric step=1 min=60 max=120 value=78></div>
+  <div class=row><label for=thumb-right>Right angle</label><input id=thumb-right type=number inputmode=numeric step=1 min=60 max=120 value=102></div>
   <div class="pad pair"><button class=btn id=thumb-test-l disabled>Hold for left</button><button class=btn id=thumb-test-r disabled>Hold for right</button></div>
 </section>
 <p class="foot phone-only">While the walk runs, the lever points to a side the LiDAR measures open beyond 1.65 m at chest height, and rests at neutral for ahead, for unsure and for anything within 0.55 m straight ahead. Open ground with nothing standing behind it counts as unsure, and nothing below 0.6 m is seen. Calibrate with the walk stopped: hold a test button, release for neutral.</p>
@@ -666,7 +666,7 @@ $('cloud-url').onchange=e=>{cloud.url=e.target.value.trim();store.set('ahead.clo
 // it is never normal. Not ported: the Mac's re-arm after 1.6 s without frames (the page writes neutral then, and
 // resumes on fresh frames).
 // <thumb-cue>
-const THUMB={NEUTRAL:90,MIN:75,MAX:105,NEAR:1.55,OPEN:1.65,STOP:.55,HOLD_MS:800,FRAMES:2,STALE_MS:1600};
+const THUMB={NEUTRAL:90,MIN:60,MAX:120,NEAR:1.55,OPEN:1.65,STOP:.55,HOLD_MS:800,FRAMES:2,STALE_MS:1600};
 const THUMB_LANES=['left','center','right'];
 // A cell holds range; the Python's thresholds are distance straight ahead, which is range times the cosine of the
 // bearing. Each cell takes the cosine at its outer edge, the smallest distance ahead the range allows, so the error
@@ -739,7 +739,7 @@ const THUMB_BLE={service:'C0DE0011-CA9E-4A11-8E8D-000000000001',angle:'C0DE0012-
 const CUE_TEXT={left:'left',right:'right',center:'ahead',unknown:'neutral'};
 const LOST_THUMB=[0,.5,1].map(t=>({time:t,intensity:1,sharpness:.3,duration:.3}));
 const thumb={id:null,connected:false,scanning:false,scanTimer:null,retry:null,noBle:false,held:null,flags:null,sent:null,sentAt:0,direction:'unknown',test:null,testTimer:null,
-  cal:{left:parseInt(store.get('ahead.thumb.left'))||80,right:parseInt(store.get('ahead.thumb.right'))||100}};
+  cal:{left:parseInt(store.get('ahead.thumb.left'))||78,right:parseInt(store.get('ahead.thumb.right'))||102}};
 const gate=thumbGate();
 
 function thumbStatus(text){
@@ -838,13 +838,13 @@ for(const [id,side] of [['thumb-test-l','left'],['thumb-test-r','right']]){
   b.addEventListener('pointerdown',()=>{if(b.disabled)return;thumbCal();thumbTest(side)});
   for(const ev of ['pointerup','pointercancel','pointerleave'])b.addEventListener(ev,()=>thumbTest(null));
 }
-// The same rule as backend/config.py: 75 to 105, left and right on opposite sides of 90.
+// The same rule as backend/config.py: 60 to 120, left and right on opposite sides of 90.
 function thumbCal(){
   const l=parseInt($('thumb-left').value), r=parseInt($('thumb-right').value);
   const ok=[l,r].every(v=>v>=THUMB.MIN&&v<=THUMB.MAX)&&(l-THUMB.NEUTRAL)*(r-THUMB.NEUTRAL)<0;
   if(ok&&l===thumb.cal.left&&r===thumb.cal.right)return;
   if(ok){thumb.cal={left:l,right:r};store.set('ahead.thumb.left',l);store.set('ahead.thumb.right',r);thumbStatus()}
-  else{$('thumb-left').value=thumb.cal.left;$('thumb-right').value=thumb.cal.right;thumbStatus(`angles are 75 to 105, left and right on opposite sides of 90; kept ${thumb.cal.left} and ${thumb.cal.right}`)}
+  else{$('thumb-left').value=thumb.cal.left;$('thumb-right').value=thumb.cal.right;thumbStatus(`angles are 60 to 120, left and right on opposite sides of 90; kept ${thumb.cal.left} and ${thumb.cal.right}`)}
 }
 $('thumb-left').value=thumb.cal.left;$('thumb-right').value=thumb.cal.right;
 $('thumb-left').onchange=$('thumb-right').onchange=thumbCal;

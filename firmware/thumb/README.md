@@ -20,7 +20,7 @@ pio device monitor                     # one line a second: angle=90 servo=ready
 
 Until `config.h` names a verified pin and supply, the board advertises and answers but emits no PWM, and the page
 says the servo is disabled. Wiring and power are as for the Wi-Fi sketch: [docs/HARDWARE.md](../../docs/HARDWARE.md).
-Calibrate with the horn off: Settings › Thumb lever, Left and Right angles (75 to 105, on opposite sides of 90), then
+Calibrate with the horn off: Settings › Thumb lever, Left and Right angles (60 to 120, on opposite sides of 90; 78 and 102 by default, about 12 degrees each way on an SG90 clone), then
 hold a test button with the walk stopped.
 
 ## GATT
@@ -30,7 +30,7 @@ Shared with the page; a change here is a change there.
 | | UUID `c0de001N-ca9e-4a11-8e8d-000000000001` | Bytes |
 | --- | --- | --- |
 | service | N = 1, advertised | |
-| angle | N = 2, write without response | uint8 degrees, 75 to 105; anything else is dropped; honoured for 800 ms |
+| angle | N = 2, write without response | uint8 degrees, 60 to 120 (500..2500 us scale, `Safety.h`); anything else is dropped; honoured for 800 ms |
 | status | N = 3, notify, every second and on change | the angle the board holds; flags: bit0 servo disabled (no verified pin, or a PWM write failed, after which the pin is held low with no pulses), bit1 neutral because no fresh angle holds another |
 
 Fail-safes: the servo goes to neutral 800 ms after the last angle and at once on disconnect, from its own task, so a

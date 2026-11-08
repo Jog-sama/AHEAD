@@ -26,7 +26,7 @@ def test_manual_stop_and_generation(settings):
     with TestClient(create_app(settings, d)) as c:
         gen = c.post("/api/arm", json={"mode": "manual"}, headers=HEADERS).json()["generation"]
         r = c.post("/api/steer", json={"direction": "left", "generation": gen}, headers=HEADERS)
-        assert r.json()["commanded_angle"] == 80
+        assert r.json()["commanded_angle"] == 78
         assert c.post("/api/stop", headers=HEADERS).json()["commanded_angle"] == 90
         assert (
             c.post(
@@ -48,7 +48,7 @@ def test_backend_idle_timeout(settings):
         assert "expired" in state["phrase"]
 
 
-@pytest.mark.parametrize("lane,angle", [("left", 80), ("center", 90), ("right", 100)])
+@pytest.mark.parametrize("lane,angle", [("left", 78), ("center", 90), ("right", 102)])
 def test_camera_backend_simulated_esp32(settings, lane, angle):
     sim = create_sim(DEVICE_KEY)
     device = HttpDevice("http://esp32", DEVICE_KEY, transport=httpx.ASGITransport(app=sim))

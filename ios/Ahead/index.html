@@ -460,7 +460,7 @@ function caneDisconnect(){
   if(on)settle(fuse());
 }
 
-// The cane's motor follows the fused state: 0 silent, 1 slow, 2 fast. The cane honours a write for 1.5 s and then
+// The cane's motor follows the fused state: 0 silent, 1 slow, 2 fast; the cane plays only 2. The cane honours a write for 1.5 s and then
 // falls back to its own sensor, so a non-zero state is written again every 500 ms for as long as it lasts; a dropped
 // link therefore ends the phone's cue within 1.5 s instead of leaving the cane buzzing.
 let motorTimer=null;

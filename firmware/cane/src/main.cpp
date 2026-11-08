@@ -1,4 +1,4 @@
-// The GATT contract is in README.md and shared with phone-bridge's page; a change here alone breaks the page. The phone's
+// The GATT contract is in README.md and shared with ios/Ahead/index.html; a change here alone breaks the page. The phone's
 // written state expires 1.5 s after the write so a dropped link neither silences the motor nor leaves it on.
 #include <Arduino.h>
 #include <NimBLEDevice.h>
@@ -53,7 +53,7 @@ const char kMotorUuid[] = "c0de0004-ca9e-4a11-8e8d-000000000001";
 const char kStatusUuid[] = "c0de0005-ca9e-4a11-8e8d-000000000001";
 
 constexpr uint16_t kNoReading = 0xFFFF;
-constexpr uint16_t kSlowUnderMm = 2500, kFastUnderMm = 1000;
+constexpr uint16_t kFastUnderMm = 1000;
 constexpr uint16_t kSettleBandMm = 100;
 constexpr int kDeescalateFrames = 4;
 constexpr unsigned long kFrameMs = 100;
@@ -63,7 +63,8 @@ constexpr unsigned long kLongPressMs = 600;
 constexpr unsigned long kStatusEveryMs = 5000;
 constexpr unsigned long kSensorStaleMs = 1000;
 constexpr unsigned long kPulseMs = 100;
-constexpr unsigned long kPeriodMs[] = {0, 600, 200};
+constexpr unsigned long kArmedMs = 300;  // one buzz, three pulses long, when the first phone connects
+constexpr unsigned long kPeriodMs = 200;
 constexpr uint8_t kBatteryUnknown = 0xFF;
 constexpr uint8_t kFlagFault = 1, kFlagPhone = 2, kFlagSettled = 4;
 
@@ -78,6 +79,7 @@ volatile uint8_t phone_state = 0;
 volatile unsigned long phone_at = 0;
 volatile bool phone_written = false;
 volatile bool connected = false;
+volatile bool paired = false;  // a phone has connected since boot; never cleared
 
 NimBLECharacteristic* distance_chr;
 NimBLECharacteristic* button_chr;
@@ -194,6 +196,7 @@ struct MotorWrite : NimBLECharacteristicCallbacks {
 struct Server : NimBLEServerCallbacks {
   void onConnect(NimBLEServer*, NimBLEConnInfo& info) override {
     connected = true;
+    paired = true;
     Serial.printf("ble: connected %s\n", info.getAddress().toString().c_str());
   }
   void onDisconnect(NimBLEServer*, NimBLEConnInfo&, int reason) override {
@@ -311,6 +314,7 @@ void loop() {
   static uint8_t sent_status[3] = {0, 0, 0};
   static uint16_t settle_mm = kNoReading;
   static unsigned long settle_at = 0;
+  static unsigned long armed_at = 0;
   esp_task_wdt_reset();
   unsigned long now = millis();
 
@@ -320,7 +324,7 @@ void loop() {
     notify(distance_chr, (uint8_t*)&mm, 2);
     if (mm != kNoReading) mm_min = min(mm_min, mm), mm_max = max(mm_max, mm);
     if (mm == kNoReading || abs((int)mm - (int)settle_mm) > kSettleBandMm) settle_mm = mm, settle_at = now;
-    uint8_t want = mm < kFastUnderMm ? 2 : mm < kSlowUnderMm ? 1 : 0;
+    uint8_t want = mm < kFastUnderMm ? 2 : 0;
     if (want >= local_state) {
       local_state = want;
       lower_frames = 0;
@@ -339,11 +343,18 @@ void loop() {
   uint8_t own = settled ? 0 : local_state;
   // A faulty sensor must not drive the motor, but the phone still may: its cue is independent of this sensor.
   uint8_t next = fault ? phone : max(own, phone);
+  // The grip buzzes only under 1 m: steady pulses there mask the ground texture the cane carries, and the chest
+  // already pulses from 2.5 m. A phone's 1 (slow) is held and echoed but plays nothing. Silent until a phone has
+  // connected once, so a board on the bench or just powered on is quiet; a drop mid-walk keeps the cane warning.
+  if (next < 2 || !paired) next = 0;
   if (next != played) {
     played = next;
     phase_at = now;  // a change starts with a pulse
   }
-  digitalWrite(CANE_MOTOR_PIN, played && (now - phase_at) % kPeriodMs[played] < kPulseMs);
+  // Silence before this buzz means the cane is not warning yet; the LED says the same only to someone who can see it.
+  if (paired && !armed_at) armed_at = now | 1;
+  bool armed_buzz = armed_at && now - armed_at < kArmedMs;
+  digitalWrite(CANE_MOTOR_PIN, armed_buzz || (played && (now - phase_at) % kPeriodMs < kPulseMs));
   digitalWrite(CANE_LED_PIN, connected ? CANE_LED_ON : !CANE_LED_ON);
 
   pollButton(now);
@@ -352,7 +363,7 @@ void loop() {
     battery_at = now;
     readBattery();
   }
-  bool phone_plays = !fault && phone && phone >= own;
+  bool phone_plays = !fault && played && phone >= own;
   // The third byte is the phone's motor value as the cane holds it, so the page can tell a write that arrived from one
   // that did not (the characteristic is write-without-response).
   uint8_t status[3] = {battery, (uint8_t)((fault ? kFlagFault : 0) | (phone_plays ? kFlagPhone : 0) |

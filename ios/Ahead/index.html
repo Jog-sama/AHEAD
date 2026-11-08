@@ -1,0 +1,946 @@
+<!doctype html><html lang=en><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name=color-scheme content="light dark"><title>Ahead</title>
+<style>
+:root{color-scheme:light dark;
+  --bg:light-dark(#f2f2f7,#000);--card:light-dark(#fff,#1c1c1e);--well:light-dark(#f2f2f7,#2c2c2e);
+  --text:light-dark(#000,#fff);--dim:light-dark(#6c6c70,#98989f);--line:light-dark(#e5e5ea,#38383a);
+  --blue:light-dark(#007aff,#0a84ff);--blue-t:light-dark(#0062cc,#4da3ff);--red:light-dark(#ff3b30,#ff453a);
+  --warn:light-dark(#9a5b00,#ffb340);
+  --far:light-dark(#d9f2dc,#1f3a23);--slow:light-dark(#ffe5b4,#5a3d00);--fast:light-dark(#ffc9c9,#6b1a1a)}
+body{margin:0;padding:env(safe-area-inset-top) 0 0;background:var(--bg);color:var(--text);
+  font-size:17px;line-height:1.35;font:-apple-system-body;font-family:-apple-system,system-ui,sans-serif;-webkit-text-size-adjust:100%}
+/* The walk screen is one screen: no scroll, the corridor takes what the controls leave. The walker reads it through
+   haptics, sound and VoiceOver; the screen is for a sighted companion, a glance at a time. */
+main{max-width:560px;margin:0 auto;padding:0 16px;box-sizing:border-box;height:calc(100dvh - env(safe-area-inset-top));display:flex;flex-direction:column}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.chip{display:inline-flex;flex:none;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:0;border-radius:22px;background:var(--card);color:var(--blue-t);font:inherit;font-weight:600;cursor:pointer}
+.chip .d{color:var(--text);font-variant-numeric:tabular-nums}
+.chip.warn{color:var(--warn)}
+.walk{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:12px 0 0}
+.state{border-radius:12px;padding:16px;background:var(--card);cursor:pointer}
+.state[data-s=far]{background:var(--far)}.state[data-s=slow]{background:var(--slow)}.state[data-s=fast]{background:var(--fast)}
+.cor-wrap{position:relative;flex:1;min-height:0;display:flex;align-items:center;container-type:inline-size}
+.cor-wrap table.cor{margin:0}
+/* The corridor keeps its proportions, cells a little under twice as tall as wide, sized from the width and centred in
+   the space between the state and the actions. */
+table.cor col.lab{width:48px}
+table.cor tbody td{height:calc((100cqw - 48px - 30px) / 9 * 1.8)}
+.cor-wrap:has(.cor-empty:not(:empty)) table{opacity:.4}
+table.cor thead th{text-align:center;padding:0 0 4px}
+table.cor thead th.l{text-align:left}table.cor thead th.r{text-align:right}
+table.cor tbody th{text-align:left;padding:0 6px 0 0}
+.cor-empty{position:absolute;left:48px;right:0;top:0;bottom:0;color:var(--text)!important;display:grid;place-items:center;margin:0;color:var(--dim);font-size:15px;font:-apple-system-subheadline;pointer-events:none}
+.cor-empty:empty{display:none}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 0 max(12px,env(safe-area-inset-bottom))}
+.controls .btn{margin:0!important}
+.controls .btn.big{min-height:64px;font-size:20px}
+.controls .res{grid-column:1/-1;margin:0;max-height:4.2em;overflow:hidden}
+h1{font-size:34px;line-height:1.2;font:-apple-system-large-title;font-weight:700;letter-spacing:-.4px;margin:0}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 4px}
+header.top+.stat{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon{flex:none;width:44px;height:44px;display:grid;place-items:center;border:0;border-radius:22px;background:transparent;color:var(--blue-t);cursor:pointer;padding:0}
+.icon svg{width:24px;height:24px}
+/* Settings is a sheet: full screen on the phone, a centred card on a wide window; the walk screen keeps only Path,
+   Ask and Cane. */
+dialog.sheet{border:0;padding:0;margin:0;width:100%;max-width:100%;height:100%;max-height:100%;background:var(--bg);color:var(--text);overscroll-behavior:contain}
+dialog.sheet::backdrop{background:rgba(0,0,0,.45)}
+@media(min-width:640px){dialog.sheet{margin:auto;max-width:560px;height:auto;max-height:90vh;border-radius:14px}}
+.sheet-bar{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:env(safe-area-inset-top) 16px 0;background:var(--bg);border-bottom:1px solid var(--line)}
+.sheet-bar h1{font-size:17px;line-height:1.3;font:-apple-system-headline;font-weight:600;letter-spacing:0}
+.sheet-bar button{font:inherit;font-weight:600;min-height:44px;border:0;background:transparent;color:var(--blue-t);padding:0;cursor:pointer}
+.sheet-body{padding:0 16px calc(32px + env(safe-area-inset-bottom))}
+h2{font-size:13px;line-height:1.3;font:-apple-system-footnote;font-weight:400;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin:0;padding:22px 16px 7px}
+.stat{color:var(--dim);font-size:15px;line-height:1.35;font:-apple-system-subheadline;margin:0}
+.card{background:var(--card);border-radius:12px;overflow:hidden}
+.card>*{margin:0}
+.pad{padding:12px 16px}
+.pad+.pad{border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0 16px}
+.row+.row,.row+.pad,.pad+.row{border-top:1px solid var(--line);margin-left:16px;padding-left:0}
+.row label{flex:0 0 auto}
+.val{color:var(--dim);font-variant-numeric:tabular-nums;text-align:right}
+.row input{flex:1 1 auto;min-width:0;text-align:right;font:inherit;min-height:44px;border:0;background:transparent;color:var(--dim);padding:0}
+.row input:focus{outline:none;color:var(--text)}
+.row input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;width:51px;height:31px;min-height:0;border-radius:16px;background:var(--line);position:relative;cursor:pointer;transition:background .2s}
+.row input[type=checkbox]::before{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.row input[type=checkbox]:checked{background:#34c759}
+.row input[type=checkbox]:checked::before{transform:translateX(20px)}
+.row input[type=checkbox]:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.row input::placeholder{color:var(--dim)}
+.foot{color:var(--dim);font-size:13px;line-height:1.35;font:-apple-system-footnote;margin:0;padding:7px 16px 0}
+.btn{display:block;width:100%;box-sizing:border-box;font:inherit;font:-apple-system-headline;font-weight:600;min-height:50px;border:0;border-radius:12px;
+  background:var(--well);color:var(--blue-t);padding:0 16px;cursor:pointer;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.btn.fill{background:var(--blue);color:#fff}
+.btn.tint{background:color-mix(in srgb,var(--blue) 18%,transparent);color:var(--blue-t)}
+.btn.fill.stop{background:var(--red)}
+.btn:disabled{opacity:.45}
+.btn+.btn{margin-top:8px}
+.res{display:block;margin:10px 0 0;color:var(--dim);font-size:15px;line-height:1.35;font:-apple-system-subheadline;white-space:pre-wrap;word-break:break-word}
+.res.err{color:var(--warn)}.res:empty{margin:0}
+#state{font-size:28px;line-height:1.2;font:-apple-system-title1;font-weight:700;margin:0;color:var(--text)}
+#alert{color:var(--warn);font-weight:600;min-height:1.35em;margin:4px 0 0}
+#alert:empty{min-height:0}
+table.cor{border-collapse:separate;border-spacing:3px;width:100%;table-layout:fixed;margin:10px 0 0}
+table.cor th{font-size:12px;line-height:1.3;font:-apple-system-caption1;font-weight:400;color:var(--dim);text-align:left;padding:0 2px}
+table.cor td{height:36px;border-radius:8px;background:var(--well);text-align:center;font-size:15px;line-height:1;font:-apple-system-subheadline;font-variant-numeric:tabular-nums;color:var(--dim)}
+table.cor td.far{background:var(--far);color:var(--text)}
+table.cor td.slow{background:var(--slow);color:var(--text)}
+table.cor td.fast{background:var(--fast);color:var(--text);font-weight:700}
+table.cor td.off{opacity:.45}
+dl{display:grid;grid-template-columns:1fr auto;gap:0 12px;margin:0}
+dt{color:var(--text);min-height:44px;display:flex;align-items:center}
+dd{margin:0;color:var(--dim);font-variant-numeric:tabular-nums;text-align:right;display:flex;align-items:center;justify-content:flex-end}
+dt+dd+dt,dt+dd+dt+dd{border-top:1px solid var(--line)}
+.code{font-size:28px;line-height:1.2;font:-apple-system-title1;font-weight:700;letter-spacing:.14em;font-variant-numeric:tabular-nums;text-align:center;margin:0 0 10px}
+.code:empty{display:none}
+/* Watching on a computer: the page is the phone, drawn at the iPhone 15 Pro's 393 × 852 points inside a bezel and
+   zoomed as one block to the window, so a projector shows the layout the phone has, larger; the viewer's own line
+   sits above the frame. */
+[hidden]{display:none!important}  /* .row and .stat set a display of their own, which would otherwise win over hidden */
+body.watch .phone-only{display:none}
+body.watch{display:flex;flex-direction:column;align-items:center;gap:18px;padding:22px 16px;min-height:100vh;box-sizing:border-box}
+body.watch #link{margin:0;text-align:center;font-size:17px}
+.frame{position:relative;flex:none;width:393px;height:852px;border-radius:55px;background:var(--bg);overflow:hidden;
+  box-shadow:0 0 0 12px #141414,0 0 0 14px #3a3a3c,0 24px 60px rgba(0,0,0,.5)}
+.frame::before{content:'';position:absolute;z-index:1;left:50%;top:11px;width:126px;height:37px;margin-left:-63px;border-radius:19px;background:#000}
+.frame main{height:100%;max-width:none;width:393px;box-sizing:border-box;padding:54px 16px 0;overflow-y:auto;scrollbar-width:none}
+.frame main::-webkit-scrollbar{display:none}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+@media(prefers-contrast:more){.card{border:1px solid var(--line)}.btn{border:1px solid currentColor}}
+</style>
+<main>
+<header class=top>
+  <button class=chip id=cane><span id=cane-l>Connect cane</span><span class=d id=cane-d></span></button>
+  <h1 class=vh>Ahead</h1>
+  <button class=icon id=settings aria-label=Settings aria-haspopup=dialog><svg viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round aria-hidden=true><circle cx=12 cy=12 r=3 /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+</header>
+<p role=status id=stat class=stat>Looking for Bridge…</p>
+<p role=status id=link class=stat hidden></p>
+
+<section class=walk aria-label="The path ahead">
+  <div class=state id=state-box title="Tap to hear the distance">
+    <p id=state aria-live=polite>Off</p>
+    <p id=alert role=alert></p>
+  </div>
+  <div class=cor-wrap>
+    <table class=cor aria-label="Distance in metres per cell, head band then chest band, 30 degrees left to 30 degrees right; dimmed cells are outside the path">
+      <colgroup><col class=lab><col span=9></colgroup>
+      <thead><tr><th></th><th colspan=3 class=l scope=colgroup>Left</th><th colspan=3 scope=colgroup>Ahead</th><th colspan=3 class=r scope=colgroup>Right</th></tr></thead>
+      <tbody>
+        <tr><th scope=row>Head</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><th scope=row>Chest</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    <p class=cor-empty id=cor-empty>Start to see the path</p>
+  </div>
+  <div class=controls>
+    <button class="btn fill big" id=go>Start</button>
+    <button class="btn tint big" id=ask>What's ahead?</button>
+    <button class=btn id=say>Distance</button>
+    <button class=btn id=voice>Ask a question</button>
+    <output class=res id=r-go aria-live=polite></output>
+    <output class=res id=r-ask aria-live=polite></output>
+  </div>
+</section>
+
+<dialog id=sheet class=sheet aria-labelledby=sheet-title>
+<div class=sheet-bar><h1 id=sheet-title>Settings</h1><button id=sheet-done>Done</button></div>
+<div class=sheet-body>
+<h2 class=phone-only>Cane</h2>
+<section class="card phone-only" aria-label=Cane>
+  <div class=pad><p class=stat role=status id=cane-stat>Cane: not connected.</p></div>
+</section>
+<p class="foot phone-only">Tap the cane button at the top to connect. On the cane, tap asks and hold asks a question.</p>
+
+<h2 class=phone-only>Setup</h2>
+<section class="card phone-only" aria-label=Setup>
+  <div class=row><label for=mount>Camera height, m</label><input id=mount type=number inputmode=decimal step=0.05 min=0.5 max=2 value=1.3></div>
+  <div class=row><label for=side>Side in slow pulses</label><input id=side type=checkbox role=switch></div>
+  <div class=row><label for=sound>Sound with pulses</label><input id=sound type=checkbox role=switch></div>
+  <div class=row><label for=dim>Dim the screen while walking</label><input id=dim type=checkbox role=switch checked></div>
+  <div class=pad><button class=btn id=learn-open>Feel the code</button></div>
+  <div class=row><label for=cloud-url>Cloud</label><input id=cloud-url type=url inputmode=url autocapitalize=off autocorrect=off spellcheck=false placeholder="https://…"></div>
+  <div class=pad><p class=stat role=status id=cloud-stat>Cloud: off. Questions are answered on the phone.</p></div>
+</section>
+<p class="foot phone-only">Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound with pulses plays a short tone with each one, higher when close, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone asks the cloud once to be approved; after that a question, the photo and the depth go to it, nothing else.</p>
+
+<div id=computer>
+<h2 class=phone-only>Computer</h2>
+<section class="card phone-only" aria-label="Show on a computer">
+  <div class=pad>
+    <p class=code id=code aria-live=polite></p>
+    <div class=row id=watch-row hidden style="padding:0;margin-bottom:8px"><label for=watch-code>Code</label><input id=watch-code autocapitalize=characters autocorrect=off spellcheck=false maxlength=8 placeholder="ABCD2345"></div>
+    <button class=btn id=mirror>Show on a computer</button>
+    <output class=res id=r-mirror aria-live=polite></output>
+  </div>
+</section>
+<p class="foot phone-only" id=mirror-foot>What this screen shows, as text, goes through the cloud endpoint to a computer that opens jonasneves.com/bridge/ahead/ and enters the code. The photo does not.</p>
+</div>
+
+<h2>This walk</h2>
+<section class=card aria-label="This walk">
+  <dl class=pad style="padding-top:0;padding-bottom:0">
+    <dt>Running</dt><dd id=m-time>0:00</dd>
+    <dt>Walked</dt><dd id=m-dist>0 m</dd>
+    <dt>Alerts</dt><dd id=m-alerts>0</dd>
+    <dt>Alerts per 100 m</dt><dd id=m-rate>–</dd>
+    <dt>Depth frames</dt><dd id=m-frames>0</dd>
+    <dt>Depth lost</dt><dd id=m-lost>0</dd>
+    <dt>Phone battery</dt><dd id=m-batt>–</dd>
+  </dl>
+  <div class=pad>
+    <button class=btn id=copy>Copy log</button>
+    <output class=res id=r-copy aria-live=polite></output>
+  </div>
+</section>
+</div>
+</dialog>
+
+<dialog id=learn class=sheet aria-labelledby=learn-title>
+<div class=sheet-bar><h1 id=learn-title>Feel the code</h1><button id=learn-done>Done</button></div>
+<div class=sheet-body>
+<p class=foot style="padding-top:16px">Each button says what it means, then plays it. Play all goes through them in order.</p>
+<h2>Patterns</h2>
+<section class=card aria-label=Patterns>
+  <div class=pad id=learn-list></div>
+</section>
+</div>
+</dialog>
+</main>
+<script>
+const $=id=>document.getElementById(id), has=!!window.native;
+const NEAR=1.0, FAR=2.5, PATH=0.6, COLS=9, HALF=30, HZ=12;   // metres; the path is ±PATH to the side of straight ahead
+const RATE={slow:600, fast:200};                             // ms between pulses
+const PULSE={slow:{intensity:1,sharpness:.5,duration:.1}, fast:{intensity:1,sharpness:.9,duration:.1}};
+// Side in slow pulses, a setting: rhythm, not strength, carries the side, since rhythm is what the skin tells apart.
+// Under 1 m the message is to stop, so the fast pulse stays plain. The cane's own reading counts as straight ahead.
+const SIDE={ahead:[{time:0,...PULSE.slow}],
+  left:[{time:0,intensity:1,sharpness:.7,duration:.04},{time:.13,intensity:1,sharpness:.7,duration:.04}],
+  right:[{time:0,intensity:1,sharpness:.3,duration:.25}]};
+let sideOn=false, soundOn=false, dimOn=true;
+// Sound with pulses, a setting, off by default: a short tone per pulse, higher when close, panned to the side the
+// nearest thing is on, which headphones make plain. The app plays it with the ring switch on silent.
+let actx=null;
+function earcon(kind,side){
+  if(!soundOn)return;
+  try{
+    actx??=new AudioContext();actx.resume();
+    const t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain(), p=actx.createStereoPanner();
+    o.frequency.value=kind==='fast'?880:kind==='slow'?523:330;
+    p.pan.value=side==='left'?-.9:side==='right'?.9:0;
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.008);g.gain.exponentialRampToValueAtTime(.001,t+(kind==='fast'?.07:.11));
+    o.connect(g).connect(p).connect(actx.destination);o.start(t);o.stop(t+.13);
+  }catch{}
+}
+// Watchdog patterns, each distinct: depth lost, three sharp taps; cane lost, two long buzzes; cane battery, one long and two short.
+const LOST_DEPTH=[0,.15,.3].map(t=>({time:t,intensity:1,sharpness:1}));
+const LOST_CANE=[0,.6].map(t=>({time:t,intensity:1,sharpness:.3,duration:.4}));
+const LOW_CANE=[{time:0,intensity:1,sharpness:.3,duration:.3},{time:.5,intensity:1,sharpness:.8},{time:.65,intensity:1,sharpness:.8}];
+const bearing=c=>(c-(COLS-1)/2)*(2*HALF/COLS)*Math.PI/180;
+const cells=[...document.querySelectorAll('table.cor tbody td')];  // 0–8 head, 9–17 chest
+const BUTTONS=['go','say','ask','voice','cane','copy','learn-open'];
+let on=false, state='off', pending=0, timer=null, ticker=null, battTimer=null, lastDepth=0, lastLost=0, depthLost=false, walking=true, t0=0, mount=1.3;
+let frames=0, lost=0, alerts=0, dist=0, nearest=null, phoneNearest=null, lastCorridor=null, log=[];
+let batt=null, thermal='';
+
+function show(id,text,err){const o=$('r-'+id);o.textContent=err?'✗ '+text:text;o.classList.toggle('err',!!err)}
+const msg=e=>String(e&&e.message||e);
+const call=(n,a)=>native.call(n,a||{});
+const pattern=events=>call('haptics.pattern',{events}).catch(()=>{});
+
+// One CSV row per event; the columns are fixed so the log opens as a table.
+const COLUMNS=['t_s','event','walking','state','dist_m','band','col','src','ms','text','battery_pct','thermal'];
+function note(ev,f){
+  f=f||{};
+  log.push([((Date.now()-t0)/1000).toFixed(2),ev,walking?1:0,f.state??'',f.dist??'',f.band??'',f.col??'',f.src??'',f.ms??'',f.text??'',batt??'',thermal]);
+  mirrorSend(JSON.stringify({type:'row',row:log[log.length-1]}));
+}
+
+// Alerts that stay until their cause clears; the alert line is their text, never a colour alone.
+function alertLine(){
+  $('alert').textContent=[depthLost?'Depth lost. Nothing is being watched.':'',cane.lost?'Cane disconnected.':''].filter(Boolean).join(' ');
+  if(on)live();
+}
+
+// The corridor comes as [chest[9], head[9]], the table shows head on top; a cell counts only inside the walking path.
+function reduce(cor){
+  phoneNearest=null;
+  for(let b=0;b<2;b++)for(let c=0;c<COLS;c++){
+    const d=cor[b][c], td=cells[(1-b)*COLS+c];
+    const inPath=d!=null&&Math.abs(d*Math.sin(bearing(c)))<=PATH;
+    td.textContent=d==null?'':d.toFixed(1);
+    td.className=d==null?'':(inPath?'':'off ')+(d<NEAR?'fast':d<FAR?'slow':'far');
+    if(inPath&&(!phoneNearest||d<phoneNearest.d))phoneNearest={d,b,c};
+  }
+}
+
+// The cane's reading counts as one more cell straight ahead in the head band. The state is the more urgent of the two,
+// so neither source can quiet the other.
+function fuse(){
+  nearest=phoneNearest;
+  if(caneD!=null&&(!nearest||caneD<nearest.d))nearest={d:caneD,b:1,c:(COLS-1)/2,cane:true};
+  return !nearest?'far':nearest.d<NEAR?'fast':nearest.d<FAR?'slow':'far';
+}
+
+// Closer engages at once; farther only after four readings agree, so a flickering edge does not stutter the pulse.
+const rank={far:0,slow:1,fast:2};
+const STATE_TEXT={far:'Clear ahead',slow:`Something within ${FAR} m`,fast:`Something within ${NEAR} m`};
+function settle(next){
+  if(next===state){pending=0;return}
+  if(rank[next]>rank[state]||++pending>=4){
+    if(rank[next]>rank[state])alerts++;
+    state=next;pending=0;
+    note('state',{state,dist:nearest?nearest.d:'',band:nearest?nearest.b:'',col:nearest?nearest.c:'',src:nearest?(nearest.cane?'cane':'phone'):''});
+    $('state').textContent=STATE_TEXT[state];$('state-box').dataset.s=state;
+    $('m-alerts').textContent=alerts;
+    schedule();motor(state);live();
+  }
+}
+
+// One pulse train for the current state. The slow one waits for walking; the fast one never does.
+function schedule(){
+  clearTimeout(timer);timer=null;
+  if(!on||state==='far')return;
+  if(state==='slow'&&!walking)return;
+  const deg=nearest?bearing(nearest.c)*180/Math.PI:0, side=deg<-10?'left':deg>10?'right':'ahead';
+  if(state==='slow'&&sideOn&&nearest)pattern(SIDE[side]);
+  else pattern([{time:0,...PULSE[state]}]);
+  earcon(state,side);
+  timer=setTimeout(schedule,RATE[state]);
+}
+
+function tick(){
+  if(!on)return;
+  const now=Date.now();
+  $('m-time').textContent=Math.floor((now-t0)/60000)+':'+String(Math.floor((now-t0)/1000)%60).padStart(2,'0');
+  if(!asking&&now-lastDepth>1500){
+    if(now-lastLost>5000){
+      lastLost=now;lost++;$('m-lost').textContent=lost;note('lost');
+      depthLost=true;alertLine();pattern(LOST_DEPTH);
+    }
+  }else if(depthLost&&now-lastDepth<=1500){depthLost=false;alertLine();note('found')}
+}
+
+async function battery(){
+  try{
+    const d=await call('device.info');
+    batt=typeof d.battery==='number'&&d.battery>=0?Math.round(d.battery*100):null;
+    thermal=d.thermal??'';
+    $('m-batt').textContent=batt==null?'–':batt+'%';
+    note('battery');
+  }catch{}
+}
+
+// Speech goes through one queue: an utterance is never cut short by the next, and the phrase for the distance
+// is already playing while the photo is taken.
+const speech=[];let speaking=false, speakDone=null;
+function speak(text){
+  return new Promise(res=>{speech.push({text,res});if(!speaking)nextSpeech()});
+}
+async function nextSpeech(){
+  const u=speech.shift();
+  if(!u){speaking=false;return}
+  speaking=true;
+  const done=new Promise(r=>speakDone=r), cap=setTimeout(()=>speakDone&&speakDone(),1500+80*u.text.length);
+  try{await call('speak.start',{text:u.text,rate:.55});await done}catch{}
+  clearTimeout(cap);speakDone=null;u.res();
+  nextSpeech();
+}
+
+// The nearest thing in the path as an O&M phrase. Clock bearings: 11, 12 and 1 o'clock.
+function metres(d){const m=Math.round(d*2)/2;return m===1?'1 metre':m%1?`${Math.floor(m)} and a half metres`:`${m} metres`}
+function lidarPhrase(){
+  if(!on)return 'Not watching the path.';
+  if(Date.now()-lastDepth>1500&&caneD==null)return 'Depth lost. I cannot see ahead.';
+  if(!nearest)return 'Nothing within reach at chest or head height.';
+  const deg=bearing(nearest.c)*180/Math.PI, clock=deg<-10?'11 o\'clock':deg>10?'1 o\'clock':'12 o\'clock';
+  return `${nearest.b===1?'Head':'Chest'} height, ${clock}, ${metres(nearest.d)}.`;
+}
+
+// ── Cane over BLE ────────────────────────────────────────────────────────────────────────────────────────────────
+// Service and characteristics of the cane; CoreBluetooth reports UUIDs in upper case.
+const CANE={service:'C0DE0001-CA9E-4A11-8E8D-000000000001',distance:'C0DE0002-CA9E-4A11-8E8D-000000000001',
+  button:'C0DE0003-CA9E-4A11-8E8D-000000000001',motor:'C0DE0004-CA9E-4A11-8E8D-000000000001',status:'C0DE0005-CA9E-4A11-8E8D-000000000001'};
+const cane={wanted:false,id:null,connected:false,lost:false,scanning:false,scanTimer:null,retry:null,battery:null,fault:false,settled:false,lowWarned:false,motorSent:null,ackWant:0,ackBy:0,ackGot:null,unconfirmed:false};
+let caneD=null;
+const bytes=b64=>{try{return Uint8Array.from(atob(b64),c=>c.charCodeAt(0))}catch{return new Uint8Array(0)}};
+
+function caneStatus(text){
+  const parts=[text||(cane.connected?'connected':'not connected')];
+  if(cane.connected&&cane.fault)parts.push('sensor fault, its reading is ignored');
+  if(cane.connected&&cane.unconfirmed)parts.push('not confirming the phone\'s pulses');
+  if(cane.connected&&cane.settled)parts.push('resting, nothing new ahead');
+  if(cane.connected&&cane.battery!=null&&cane.battery<15)parts.push(`battery low, ${cane.battery}%`);
+  const line='Cane: '+parts.join('; ')+'.';
+  if($('cane-stat').textContent!==line)$('cane-stat').textContent=line;   // a live region re-announces on every write
+  $('cane-l').textContent=cane.connected?'Cane':cane.scanning?'Looking for cane…':'Connect cane';
+  $('cane').classList.toggle('warn',cane.connected&&(cane.fault||cane.unconfirmed));
+  $('cane').setAttribute('aria-label',cane.connected?`Cane, ${parts.slice(1).join(', ')||'connected'}${caneD!=null?', '+caneD.toFixed(1)+' metres':''}. Double tap to disconnect.`:cane.scanning?'Looking for the cane. Double tap to stop.':'Connect cane');
+}
+
+async function caneScan(){
+  if(!has||!cane.wanted||cane.connected||cane.scanning)return;
+  cane.scanning=true;caneStatus('looking for a cane');
+  try{await call('ble.scan',{services:[CANE.service]})}
+  catch(e){cane.scanning=false;caneStatus('Bluetooth, '+msg(e));return}
+  clearTimeout(cane.scanTimer);
+  cane.scanTimer=setTimeout(()=>{
+    if(!cane.scanning)return;
+    cane.scanning=false;call('ble.stopScan').catch(()=>{});
+    caneStatus('no cane found');caneRetry();
+  },15000);
+}
+// While the walk runs a missing cane is looked for again; stopped, the person taps Connect cane.
+function caneRetry(){clearTimeout(cane.retry);if(cane.wanted&&on&&!cane.connected)cane.retry=setTimeout(caneScan,5000)}
+
+async function caneConnect(id){
+  cane.scanning=false;clearTimeout(cane.scanTimer);call('ble.stopScan').catch(()=>{});
+  try{
+    const r=await call('ble.connect',{id});
+    if(!(r.services||[]).some(s=>String(s.uuid).toUpperCase()===CANE.service))throw new Error('not a cane');
+    cane.id=id;
+    for(const c of [CANE.distance,CANE.button])await call('ble.subscribe',{id,service:CANE.service,characteristic:c});
+    await call('ble.subscribe',{id,service:CANE.service,characteristic:CANE.status}).catch(()=>{});
+    cane.connected=true;cane.lost=false;cane.fault=false;cane.motorSent=null;cane.ackWant=0;cane.ackGot=null;cane.unconfirmed=false;
+    alertLine();caneStatus();note('cane_connected');
+    if(on)motor(state);
+  }catch(e){cane.id=null;caneStatus('connect failed, '+msg(e));caneRetry()}
+}
+
+function caneDisconnect(){
+  cane.wanted=false;clearTimeout(cane.retry);clearTimeout(cane.scanTimer);
+  if(cane.scanning){cane.scanning=false;call('ble.stopScan').catch(()=>{})}
+  if(cane.connected){motor('far');cane.connected=false;call('ble.disconnect',{id:cane.id}).catch(()=>{})}
+  caneD=null;$('cane-d').textContent='';cane.lost=false;alertLine();caneStatus('not connected');
+  if(on)settle(fuse());
+}
+
+// The cane's motor follows the fused state: 0 silent, 1 slow, 2 fast. The cane honours a write for 1.5 s and then
+// falls back to its own sensor, so a non-zero state is written again every 500 ms for as long as it lasts; a dropped
+// link therefore ends the phone's cue within 1.5 s instead of leaving the cane buzzing.
+let motorTimer=null;
+function motor(s){
+  clearTimeout(motorTimer);motorTimer=null;
+  if(!cane.connected)return;
+  const v=rank[s]??0;
+  if(v!==cane.motorSent){
+    cane.motorSent=v;
+    call('ble.write',{id:cane.id,service:CANE.service,characteristic:CANE.motor,base64:btoa(String.fromCharCode(v))}).catch(()=>{cane.motorSent=null});
+  }
+  // The write has no response, so the cane echoes what it holds in its status; 1.5 s without the echo matching means
+  // the pulses the phone asks for are not reaching the grip. Older firmware sends no echo and is never flagged.
+  const now=Date.now();
+  let u=false;
+  if(v>0){if(cane.ackWant!==v){cane.ackWant=v;cane.ackBy=now+1500}u=cane.unconfirmed;if(now>cane.ackBy&&cane.ackGot!=null)u=cane.ackGot!==v}
+  else cane.ackWant=0;
+  if(u!==cane.unconfirmed){cane.unconfirmed=u;note(u?'cane_unconfirmed':'cane_confirmed');caneStatus()}
+  if(v>0)motorTimer=setTimeout(()=>{cane.motorSent=null;motor(s)},500);
+}
+
+$('cane').onclick=()=>{
+  if(cane.connected||cane.scanning)return caneDisconnect();
+  cane.wanted=true;caneScan();
+};
+
+if(has){
+  native.on('ble.device',d=>{if(cane.scanning&&!cane.connected)caneConnect(d.id)});
+  native.on('ble.value',v=>{
+    if(v.id!==cane.id||!cane.connected)return;
+    const b=bytes(v.base64), c=String(v.characteristic).toUpperCase();
+    if(c===CANE.distance){
+      const mm=b.length>=2?b[0]|b[1]<<8:0xFFFF;
+      caneD=mm===0xFFFF||cane.fault?null:mm/1000;
+      $('cane-d').textContent=caneD==null?'':caneD.toFixed(1)+' m';
+      if(on)settle(fuse());
+    }else if(c===CANE.button){
+      note('cane_button',{text:b[0]===2?'long':'short'});
+      if(b[0]===1)askNow('cane');else if(b[0]===2)askSpoken('cane',true);
+    }else if(c===CANE.status){
+      const low=b[0]===0xFF?null:b[0], fault=!!((b[1]||0)&1);
+      cane.settled=!!((b[1]||0)&4);
+      if(b.length>=3)cane.ackGot=b[2];   // the phone's value as the cane holds it; older firmware sends two bytes
+      if(fault!==cane.fault){cane.fault=fault;if(fault){caneD=null;$('cane-d').textContent='';note('cane_fault')}}
+      cane.battery=low;
+      if(low!=null&&low<15&&!cane.lowWarned){cane.lowWarned=true;note('cane_battery',{text:low});pattern(LOW_CANE)}
+      caneStatus();
+    }
+  });
+  native.on('ble.disconnected',d=>{
+    if(d.id!==cane.id||!cane.connected)return;
+    cane.connected=false;cane.lost=true;caneD=null;$('cane-d').textContent='';
+    note('cane_lost');alertLine();pattern(LOST_CANE);caneStatus('disconnected');
+    if(on){settle(fuse());caneScan()}
+  });
+}
+
+// ── Push to ask ──────────────────────────────────────────────────────────────────────────────────────────────────
+const store={get(k){try{return localStorage.getItem(k)||''}catch{return ''}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
+// This phone holds a P-256 key that never leaves it and an id, together in one IndexedDB record (the CryptoKey is not
+// extractable). On first launch it enrolls the public half with the cloud; the owner approves the phone once, and every
+// ask after that is signed over the time and the body. No secret is typed or shipped. A store that lost the record
+// means a new id and a new approval, never an old id with a new key.
+const cloud={url:store.get('ahead.cloud.url')||'https://ahead-ask.jonasneves.workers.dev/',status:'off',fp:''};
+const cloudOn=()=>cloud.status==='approved';
+let deviceId='', device=null, enrollTimer=null;
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('ahead',1);r.onupgradeneeded=()=>r.result.createObjectStore('keys');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function loadDevice(fresh){
+  if(device&&!fresh)return device;
+  const db=await idb();
+  const tx=(mode,fn)=>new Promise((res,rej)=>{const t=fn(db.transaction('keys',mode).objectStore('keys'));t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)});
+  let d=fresh?null:await tx('readonly',o=>o.get('device'));
+  if(d&&!d.id){d.id=store.get('ahead.device.id')||crypto.randomUUID();await tx('readwrite',o=>o.put(d,'device'))}
+  if(!d){
+    const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+    d={id:crypto.randomUUID(),privateKey:pair.privateKey,publicJwk:await crypto.subtle.exportKey('jwk',pair.publicKey)};
+    await tx('readwrite',o=>o.put(d,'device'));
+  }
+  deviceId=d.id;store.set('ahead.device.id',deviceId);
+  return device=d;
+}
+const b64url=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const sha256=async t=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+async function sign(message){
+  const d=await loadDevice();
+  return b64url(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},d.privateKey,new TextEncoder().encode(message)));
+}
+async function signed(raw){
+  const time=String(Date.now());
+  return {'X-Device':deviceId,'X-Time':time,'X-Signature':await sign(`${time}.${await sha256(raw)}`)};
+}
+function cloudStatus(){
+  let host='';try{host=new URL(cloud.url).host}catch{}
+  $('cloud-stat').textContent=
+    cloud.url&&!/^https:\/\//.test(cloud.url)?'Cloud: off. The endpoint must start with https://.'
+    :cloud.status==='approved'?`Cloud: on, ${host}.`
+    :cloud.status==='pending'?`Cloud: waiting for this phone to be approved${cloud.fp?', code '+cloud.fp:''}. Questions are answered on the phone.`
+    :cloud.status==='error'?'Cloud: unreachable. Questions are answered on the phone.'
+    :'Cloud: off. Questions are answered on the phone.';
+}
+async function enroll(){
+  clearTimeout(enrollTimer);
+  if(!has||!/^https:\/\/\S+$/.test(cloud.url)){cloud.status='off';cloudStatus();return}
+  try{
+    const d=await loadDevice();
+    let name='iPhone';try{name=(await call('device.info')).name||name}catch{}
+    const r=await fetch(new URL('enroll',cloud.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:d.id,name,key:d.publicJwk})});
+    if(r.status===409){await loadDevice(true);return enroll()}   // the id belongs to a key this phone no longer has
+    const j=r.ok?await r.json():{};cloud.status=j.status||'error';cloud.fp=j.fp||'';
+  }catch{cloud.status='error'}
+  cloudStatus();
+  if(cloud.status!=='approved')enrollTimer=setTimeout(enroll,cloud.status==='pending'?20000:60000);
+}
+$('cloud-url').value=cloud.url;cloudStatus();
+sideOn=store.get('ahead.side')==='1';$('side').checked=sideOn;
+soundOn=store.get('ahead.sound')==='1';$('sound').checked=soundOn;
+dimOn=store.get('ahead.dim')!=='0';$('dim').checked=dimOn;
+$('sound').onchange=e=>{soundOn=e.target.checked;store.set('ahead.sound',soundOn?'1':'0');note('sound',{text:soundOn?'on':'off'});if(soundOn)earcon('slow','ahead')};
+$('dim').onchange=e=>{dimOn=e.target.checked;store.set('ahead.dim',dimOn?'1':'0');if(on)dim(dimOn)};
+$('side').onchange=e=>{sideOn=e.target.checked;store.set('ahead.side',sideOn?'1':'0');note('side',{text:sideOn?'on':'off'})};
+$('cloud-url').onchange=e=>{cloud.url=e.target.value.trim();store.set('ahead.cloud.url',cloud.url);cloud.status='off';enroll()};
+
+// ── Show on a computer ───────────────────────────────────────────────────────────────────────────────────────────
+// What the screen shows, as text and cell colours, goes through the cloud endpoint (`/mirror/<code>`, a WebSocket)
+// to this same page opened on a computer with `?watch=<code>`; the photo never goes. The code is made once and
+// kept, so the computer's address holds from one run to the next. Each log row goes too, so the computer can copy
+// the log.
+const ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789', ROOM=/^[A-HJ-NP-Z2-9]{8}$/;
+const MIRRORED=['stat','state','alert','cor-empty','r-go','r-ask','cane-d','cane-stat','m-time','m-dist','m-alerts','m-rate','m-frames','m-lost','m-batt'];
+const mirror={on:false,ws:null,raf:0,retry:null,wait:1000,last:null,code:store.get('ahead.mirror.code')};
+if(!ROOM.test(mirror.code)){mirror.code=[...crypto.getRandomValues(new Uint8Array(8))].map(b=>ALPHABET[b%32]).join('');store.set('ahead.mirror.code',mirror.code)}
+function mirrorURL(code,role){const u=new URL(cloud.url);u.protocol=u.protocol==='http:'?'ws:':'wss:';u.pathname='/mirror/'+code;u.search=role==='send'?'?role=send':'';return u.href}
+// The screen as the computer needs it: texts by id, error marks, the 18 cells, the Start button, the cane button and
+// where the thumb has the page, as a share of the scroll range.
+function screenState(){
+  const t={};for(const id of MIRRORED)t[id]=$(id).textContent;
+  return {t,err:['r-go','r-ask'].filter(id=>$(id).classList.contains('err')),
+    cells:cells.map(td=>td.textContent+'\u0001'+td.className),go:$('go').textContent+'\u0001'+($('go').classList.contains('stop')?1:0),cane:$('cane-l').textContent,st:$('state-box').dataset.s||'',
+    scroll:Math.round(1000*scrollY/Math.max(1,document.documentElement.scrollHeight-innerHeight))/1000};
+}
+function mirrorSend(text){if(mirror.on&&mirror.ws&&mirror.ws.readyState===1)try{mirror.ws.send(text)}catch{}}
+// Changes go out once per animation frame as a delta against the last send, stamped with the phone's clock; the whole
+// screen goes every 2 s, which is also what a computer joining late is shown.
+function mirrorFlush(force){
+  mirror.raf=0;
+  if(!mirror.on)return;
+  const now=screenState(), was=mirror.last;
+  if(force||!was){mirror.last=now;mirrorSend(JSON.stringify({type:'state',at:Date.now(),...now}));return}
+  const d={};
+  for(const id in now.t)if(now.t[id]!==was.t[id])(d.t??={})[id]=now.t[id];
+  if(now.err.join()!==was.err.join())d.err=now.err;
+  now.cells.forEach((c,i)=>{if(c!==was.cells[i])(d.cells??={})[i]=c});
+  if(now.go!==was.go)d.go=now.go;
+  if(now.cane!==was.cane)d.cane=now.cane;
+  if(now.st!==was.st)d.st=now.st;
+  if(now.scroll!==was.scroll)d.scroll=now.scroll;
+  mirror.last=now;
+  if(Object.keys(d).length)mirrorSend(JSON.stringify({type:'delta',at:Date.now(),...d}));
+}
+const mirrorQueue=()=>{if(mirror.on&&!mirror.raf)mirror.raf=requestAnimationFrame(()=>mirrorFlush())};
+new MutationObserver(mirrorQueue).observe(document.querySelector('main'),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
+addEventListener('scroll',mirrorQueue,{passive:true});
+setInterval(()=>mirrorFlush(true),2000);
+function mirrorStatus(text,err){
+  show('mirror',text,err);
+  $('mirror').textContent=mirror.on?'Stop showing':'Show on a computer';
+  $('code').textContent=mirror.on?mirror.code:'';
+}
+function mirrorOpen(){
+  clearTimeout(mirror.retry);
+  if(!mirror.on)return;
+  let ws;
+  try{ws=new WebSocket(mirrorURL(mirror.code,'send'))}catch(e){mirrorStatus(msg(e),true);return}
+  mirror.ws=ws;
+  ws.onopen=async()=>{
+    const time=Date.now();
+    mirror.wait=1000;ws.send(JSON.stringify({type:'hello',device:{id:deviceId,time,sig:await sign(`mirror.${mirror.code}.${time}`)}}));
+    mirrorFlush(true);
+    mirrorStatus(`Code ${mirror.code}. No computer watching yet.`);
+  };
+  ws.onmessage=e=>{
+    let m;try{m=JSON.parse(e.data)}catch{return}
+    if(m.type==='watchers')mirrorStatus(`Code ${mirror.code}. ${m.n===0?'No computer watching yet.':m.n===1?'One computer watching.':m.n+' computers watching.'}`);
+  };
+  ws.onclose=e=>{
+    if(mirror.ws!==ws)return;
+    mirror.ws=null;
+    if(e.code===4001){mirrorStop();mirrorStatus('The cloud has not approved this phone.',true);return}
+    if(!mirror.on)return;
+    mirrorStatus(`Code ${mirror.code}. Reconnecting…`);
+    mirror.retry=setTimeout(mirrorOpen,mirror.wait);mirror.wait=Math.min(mirror.wait*2,8000);
+  };
+}
+function mirrorStart(){
+  if(!cloudOn())return mirrorStatus('The cloud has not approved this phone yet.',true);
+  mirror.on=true;mirror.wait=1000;store.set('ahead.mirror.on','1');
+  mirrorStatus(`Code ${mirror.code}. Connecting…`);mirrorOpen();
+}
+function mirrorStop(){
+  mirror.on=false;store.set('ahead.mirror.on','');
+  clearTimeout(mirror.retry);cancelAnimationFrame(mirror.raf);mirror.raf=0;mirror.last=null;
+  if(mirror.ws){const w=mirror.ws;mirror.ws=null;try{w.close()}catch{}}
+  mirrorStatus('');
+}
+$('mirror').onclick=()=>{
+  if(!has){
+    const c=$('watch-code').value.trim().toUpperCase();
+    if(!ROOM.test(c))return show('mirror','The code is the 8 letters and digits the phone shows.',true);
+    location.search='?watch='+c;return;
+  }
+  if(mirror.on)mirrorStop();else mirrorStart();
+};
+
+// ── Watching a phone, on a computer ──────────────────────────────────────────────────────────────────────────────
+const watching=(()=>{const c=new URLSearchParams(location.search).get('watch')||'';return !has&&ROOM.test(c)?c:''})();
+// A full state or a delta, applied the same way; the scroll is a target the frame glides to a third of the way each
+// frame, so it stays within a frame or two of the phone and still looks smooth (jumps under reduced motion).
+const view={scroll:null,raf:0,lat:[],latAt:0};
+function applyState(m){
+  for(const id in m.t||{}){const el=$(id);if(el&&el.textContent!==m.t[id])el.textContent=m.t[id]}
+  if(m.err)['r-go','r-ask'].forEach(id=>$(id).classList.toggle('err',m.err.includes(id)));
+  for(const i in m.cells||{}){const td=cells[i];if(!td)continue;const [t,c]=m.cells[i].split('\u0001');if(td.textContent!==t)td.textContent=t;if(td.className!==c)td.className=c}
+  if(typeof m.go==='string'){const [t,stop]=m.go.split('\u0001');$('go').textContent=t;$('go').classList.toggle('stop',stop==='1')}
+  if(typeof m.cane==='string')$('cane-l').textContent=m.cane;
+  if(typeof m.st==='string')$('state-box').dataset.s=m.st;
+  if(typeof m.scroll==='number'){view.scroll=m.scroll;if(!view.raf)view.raf=requestAnimationFrame(glide)}
+  if(typeof m.at==='number'){view.lat.push(Date.now()-m.at);if(view.lat.length>20)view.lat.shift()}
+}
+function glide(){
+  view.raf=0;
+  const el=document.querySelector('main'), target=view.scroll*(el.scrollHeight-el.clientHeight), gap=target-el.scrollTop;
+  if(Math.abs(gap)<.5)return;
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.scrollTop=target;return}
+  el.scrollTop+=gap*.35;view.raf=requestAnimationFrame(glide);
+}
+// The one-way delay, phone clock to this one, as the median of the last 20 messages; both clocks are set by the network.
+function latency(){if(!view.lat.length)return '';const s=[...view.lat].sort((a,b)=>a-b);return ` · ${Math.max(0,s[s.length>>1])} ms behind`}
+function watch(){
+  document.body.classList.add('watch');document.title=`Ahead · ${watching}`;
+  $('link').hidden=false;$('copy').disabled=false;log=[COLUMNS];
+  const main=document.querySelector('main'), frame=document.createElement('div');
+  frame.className='frame';document.body.prepend($('link'));main.replaceWith(frame);frame.append(main);
+  const fit=()=>{frame.style.zoom=Math.max(.3,Math.min((innerHeight-$('link').offsetHeight-72)/880,(innerWidth-64)/421))};
+  fit();addEventListener('resize',fit);
+  let wait=1000;
+  const open=()=>{
+    const ws=new WebSocket(mirrorURL(watching,'watch'));
+    ws.onopen=()=>{wait=1000;$('link').textContent=`Watching phone ${watching}.`};
+    ws.onmessage=e=>{
+      let m;try{m=JSON.parse(e.data)}catch{return}
+      if(m.type==='state'||m.type==='delta'){
+        applyState(m);
+        if(Date.now()-view.latAt>500){view.latAt=Date.now();$('link').textContent=`Watching phone ${watching}${latency()}.`}
+      }
+      else if(m.type==='row')log.push(m.row);
+      else if(m.type==='reset')log=[COLUMNS];
+      else if(m.type==='phone'){view.lat=[];$('link').textContent=m.on?`Watching phone ${watching}.`:`Phone ${watching} is not showing. On the phone: Computer, Show on a computer.`}
+    };
+    ws.onclose=()=>{$('link').textContent='Reconnecting…';setTimeout(open,wait);wait=Math.min(wait*2,8000)};
+  };
+  open();
+}
+
+let asking=false, listening=null, releaseEarly=false;
+// Whether to cross, go or walk is never answered.
+const CROSSING=/\b(safe|clear|okay|ok|all ?right|fine|good)\b[^.?!]*\b(cross|go|walk|proceed|step|continue)|\b(can|could|should|may|shall|do)\s+i\s+(cross|go|walk|proceed|step|continue)|\bcross(ing)?\b|\bis\s+(it|the\s+\w+)\s+(clear|safe|free)\b|\b(path|way|road|street)\b[^.?!]*\bclear\b/i;
+// The first distance the cloud model states becomes the LiDAR's own nearest reading; any other is dropped, since the
+// LiDAR cannot say which object it belongs to.
+const DISTANCE=/\b(?:(?:about|around|approximately|roughly|some|nearly|almost|over|under|within)\s+)?(?:\d+(?:\.\d+)?|a|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|fifty|hundred)(?:\s*(?:and a half|to\s+\d+(?:\.\d+)?))?\s*(?:m|metres?|meters?|ft|feet|foot|yards?)\b\.?/gi;
+function scrub(s){
+  let own=nearest?`about ${metres(nearest.d)}`:'';
+  return String(s||'').replace(DISTANCE,m=>{const r=own+(m.endsWith('.')?'.':'');own='';return r}).replace(/\s{2,}/g,' ').replace(/\s+([.,;])/g,'$1').trim();
+}
+
+// A photo with the depth stream paused: ARKit and the camera cannot both hold the camera.
+async function snapshot(){
+  const was=on;
+  if(was)await call('depth.stop').catch(()=>{});
+  try{return await call('camera.photo',{maxSide:1024,quality:.7,flash:'off'})}
+  finally{if(was&&on){await call('depth.start',{hz:HZ,mount}).catch(e=>show('go',msg(e),true));lastDepth=Date.now()}}
+}
+
+async function cloudAsk(image,question){
+  const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),15000);
+  try{
+    const raw=JSON.stringify({image,corridor:lastCorridor,question});
+    const r=await fetch(cloud.url,{method:'POST',headers:{...await signed(raw),'Content-Type':'application/json'},body:raw,signal:ctl.signal});
+    if(r.status===401){cloud.status='off';enroll();throw new Error('this phone is not approved for the cloud')}
+    if(r.status===429)throw new Error("today's cloud limit is used up");
+    if(!r.ok)throw new Error('the cloud answered '+r.status);
+    const j=await r.json();
+    if(typeof j!=='object'||j===null||(typeof j.answer!=='string'&&!j.abstain))throw new Error('the cloud answer has no answer field');
+    return j;
+  }finally{clearTimeout(t)}
+}
+
+// The distance phrase is spoken at once; the photo's description follows it. A question goes to the cloud only when
+// one is set and it is not about crossing; otherwise the phone answers from the photo alone.
+async function answer(question,src,photo){
+  const t=Date.now();
+  let spoken=lidarPhrase(), source='device';
+  speak(spoken);
+  const add=s=>{spoken+=' '+s;speak(s)};
+  try{
+    const p=await (photo||snapshot());
+    if(question&&CROSSING.test(question)){source='blocked';add('I do not judge crossings. Use the cane and the traffic sounds.')}
+    else if(question&&cloudOn()){
+      source='cloud';
+      const a=await cloudAsk(p.image,question);
+      add(a.abstain?`Not sure. ${a.reason||''}`.trim():scrub(a.answer)||'The cloud gave no answer.');
+    }else{
+      const [labels,text]=await Promise.all([call('vision.classify',{image:p.image,max:3}),call('vision.text',{image:p.image})]);
+      let s='Ahead: '+((labels||[]).length?labels.map(l=>l.label).join(', '):'nothing recognized')+'.';
+      const line=String(text&&text.text||'').split('\n').map(l=>l.trim()).find(Boolean);
+      if(line)s+=` Sign reads: ${line}.`;
+      add(s);
+    }
+  }catch(e){add('Could not look. '+msg(e))}
+  const ms=Date.now()-t;
+  note('ask',{src:source,ms,text:(question?`Q: ${question} | `:'')+spoken});
+  show('ask',spoken);
+}
+
+async function askNow(src){
+  if(!has||asking)return;
+  asking=true;$('ask').disabled=$('voice').disabled=true;
+  try{await answer(null,src)}finally{asking=false;$('ask').disabled=$('voice').disabled=false}
+}
+
+// Listen for a question: until the button is released, or, from the cane or the voice button, until the transcript
+// settles or 7 s pass. The photo is taken meanwhile.
+function listen(auto){
+  return new Promise(res=>{
+    let done=false, tm=null;
+    const finish=async()=>{
+      if(done)return;done=true;clearTimeout(tm);listening=null;
+      let t='';try{t=await call('speech.stop')}catch{}
+      res(String(t||'').trim());
+    };
+    listening={finish,auto,start:Date.now()};
+    call('speech.start').then(()=>{
+      if(done)return;
+      call('haptics.tap',{intensity:.6,sharpness:.3}).catch(()=>{});
+      tm=setTimeout(finish,7000);
+      if(!auto&&releaseEarly)finish();
+    }).catch(e=>{done=true;listening=null;show('ask','Could not listen: '+msg(e),true);res(null)});
+  });
+}
+async function askSpoken(src,auto){
+  if(!has||asking)return;
+  asking=true;releaseEarly=false;$('ask').disabled=auto;$('voice').disabled=true;
+  show('ask','Listening…');
+  try{
+    const photo=snapshot();photo.catch(()=>{});
+    const q=await listen(auto);
+    await answer(q||null,src,photo);
+  }finally{asking=false;$('ask').disabled=$('voice').disabled=false}
+}
+if(has)native.on('speech.text',s=>{
+  if(listening&&listening.auto&&s.final&&String(s.text||'').trim()&&Date.now()-listening.start>1200)listening.finish();
+});
+
+// Tap asks; holding past half a second listens until release. Keyboard and VoiceOver reach the hold through Ask by voice.
+let holdT=null, held=false;
+$('ask').addEventListener('pointerdown',()=>{
+  if($('ask').disabled)return;
+  held=false;clearTimeout(holdT);
+  holdT=setTimeout(()=>{held=true;askSpoken('hold',false)},450);
+});
+const release=()=>{clearTimeout(holdT);if(held){if(listening&&!listening.auto)listening.finish();else releaseEarly=true}};
+$('ask').addEventListener('pointerup',release);
+$('ask').addEventListener('pointercancel',release);
+$('ask').addEventListener('pointerleave',release);
+$('ask').addEventListener('click',()=>{if(held){held=false;return}askNow('button')});
+$('voice').onclick=()=>askSpoken('voice',true);
+
+// ── The walk ─────────────────────────────────────────────────────────────────────────────────────────────────────
+if(has){
+  native.on('depth',d=>{
+    lastDepth=Date.now();frames++;
+    if(d.corridor&&$('cor-empty').textContent)$('cor-empty').textContent='';
+    if(frames%6===0)$('m-frames').textContent=frames;
+    lastCorridor=d.corridor||null;
+    if(!d.corridor){cells.forEach(td=>{td.textContent='';td.className=''});phoneNearest=null}
+    else reduce(d.corridor);
+    settle(fuse());
+  });
+  native.on('activity',a=>{
+    const w=!!(a.walking||a.running);
+    if(w!==walking){walking=w;note('walking');if(state==='slow')schedule()}
+  });
+  native.on('steps',s=>{
+    dist=s.distance_m||0;$('m-dist').textContent=Math.round(dist)+' m';
+    $('m-rate').textContent=dist>=20?(alerts/dist*100).toFixed(1):'–';
+  });
+  native.on('speak.done',()=>{if(speakDone)speakDone()});
+}
+
+// The Lock Screen and the Dynamic Island show the state while the phone sits in the mount.
+let liveId=null, liveSent='';
+function live(){
+  if(!has||!canLive)return;
+  const short={far:'Clear',slow:'Near',fast:'Close'}[state]||'Watching', body=depthLost?'Depth lost':STATE_TEXT[state]||'Watching ahead';
+  if(!on){if(liveId){call('live.end',{id:liveId,body:'Stopped'}).catch(()=>{});liveId=null;liveSent=''}return}
+  const sig=short+body;if(sig===liveSent)return;liveSent=sig;
+  if(!liveId)call('live.start',{title:'Ahead',body,state:{text:short}}).then(r=>{liveId=r.id;if(!on)live()}).catch(()=>{liveSent=''});
+  else call('live.update',{id:liveId,body,state:{text:short}}).catch(()=>{});
+}
+let canLive=false;
+// The screen does nothing for the walker: dimmed while walking, it saves battery and heat; restored on stop.
+let brightWas=null;
+async function dim(walking){
+  if(!has)return;
+  try{
+    if(walking&&dimOn){if(brightWas==null)brightWas=(await call('screen.brightness')).level;await call('screen.brightness',{level:.05})}
+    else if(!walking&&brightWas!=null){await call('screen.brightness',{level:brightWas});brightWas=null}
+  }catch{}
+}
+async function start(){
+  mount=parseFloat($('mount').value)||1.3;
+  t0=Date.now();frames=lost=alerts=dist=0;log=[COLUMNS];mirrorSend(JSON.stringify({type:'reset'}));
+  ['m-dist','m-alerts','m-frames','m-lost'].forEach(id=>$(id).textContent='0');$('m-rate').textContent='–';
+  await call('depth.start',{hz:HZ,mount});
+  on=true;lastDepth=Date.now();lastLost=0;depthLost=false;state='far';
+  for(const [n,a] of [['activity.start',{}],['steps.start',{}],['screen.keepAwake',{on:true}]])call(n,a).catch(()=>{});
+  clearInterval(ticker);ticker=setInterval(tick,500);
+  clearInterval(battTimer);battTimer=setInterval(battery,60000);battery();
+  $('go').textContent='Stop';$('go').classList.add('stop');$('mount').disabled=true;
+  $('state').textContent='Watching';$('state-box').dataset.s='';$('stat').textContent='Watching ahead.';
+  live();dim(true);
+  if(cane.connected)motor('far');else if(cane.wanted)caneScan();
+}
+async function stop(){
+  $('cor-empty').textContent='Start to see the path';
+  on=false;clearTimeout(timer);clearInterval(ticker);clearInterval(battTimer);clearTimeout(cane.retry);state='off';
+  for(const n of ['depth.stop','activity.stop','steps.stop'])call(n).catch(()=>{});
+  call('screen.keepAwake',{on:false}).catch(()=>{});
+  motor('far');
+  depthLost=false;alertLine();
+  $('go').textContent='Start';$('go').classList.remove('stop');$('mount').disabled=false;$('state').textContent='Off';$('state-box').dataset.s='';
+  live();dim(false);
+  $('stat').textContent=`Stopped after ${$('m-time').textContent}, ${alerts} alerts over ${Math.round(dist)} m.`;
+}
+$('go').onclick=async()=>{
+  if(!has)return show('go','Open this page in the Ahead app.',true);
+  $('go').disabled=true;
+  try{await (on?stop():start());show('go','')}
+  catch(e){show('go',msg(e),true)}
+  finally{$('go').disabled=false}
+};
+
+$('state-box').onclick=()=>$('say').click();
+$('say').onclick=()=>{
+  if(!has)return show('go','Open this page in the Ahead app.',true);
+  const text=lidarPhrase();
+  note('say',{text});
+  speak(text);
+};
+
+$('copy').onclick=async()=>{
+  const csv=log.map(r=>r.map(v=>/[",\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:v).join(',')).join('\n');
+  try{await navigator.clipboard.writeText(csv);show('copy',`${log.length-1} rows copied.`)}
+  catch{show('copy','Could not copy; the page needs a tap first.',true)}
+};
+
+$('settings').onclick=()=>$('sheet').showModal();
+$('sheet').addEventListener('close',()=>{if(on)dim(true)});
+$('settings').addEventListener('click',()=>{if(on)dim(false)});
+
+// Feel the code: each pattern said, then played, so the code is learned by feel; offered once on first launch.
+const LEARN=[
+  ['Slow','Slow pulses: something within two and a half metres.',()=>{for(let i=0;i<4;i++)setTimeout(()=>{pattern([{time:0,...PULSE.slow}]);earcon('slow','ahead')},i*RATE.slow)}],
+  ['Fast','Fast pulses: something within one metre. Stop.',()=>{for(let i=0;i<8;i++)setTimeout(()=>{pattern([{time:0,...PULSE.fast}]);earcon('fast','ahead')},i*RATE.fast)}],
+  ['Left','With side in slow pulses on, two short taps: something to the left.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.left);earcon('slow','left')},i*RATE.slow)}],
+  ['Right','One long buzz: something to the right.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.right);earcon('slow','right')},i*RATE.slow)}],
+  ['Depth lost','Three sharp taps: the phone cannot see. Nothing is being watched.',()=>pattern(LOST_DEPTH)],
+  ['Cane lost','Two long buzzes: the cane disconnected.',()=>pattern(LOST_CANE)],
+];
+LEARN.forEach(([label,say,play])=>{
+  const b=document.createElement('button');b.className='btn';b.textContent=label;
+  b.onclick=async()=>{await speak(say);play()};
+  $('learn-list').append(b);
+});
+{const b=document.createElement('button');b.className='btn fill';b.textContent='Play all';
+ b.onclick=async()=>{for(const [,say,play] of LEARN){await speak(say);play();await new Promise(r=>setTimeout(r,2600))}};
+ $('learn-list').prepend(b)}
+$('learn-open').onclick=()=>{$('sheet').close();$('learn').showModal()};
+$('learn-done').onclick=()=>{$('learn').close();store.set('ahead.learned','1')};
+
+// The Action Button, Siri or a Shortcut: start or stop the walk, then say which, since the walker is not looking.
+if(has)native.on('intent',d=>{
+  if(d.text!=='walk')return;
+  const go=async()=>{
+    try{await (on?stop():start());show('go','');speak(on?'Watching ahead.':'Stopped.')}
+    catch(e){show('go',msg(e),true);speak('Could not start. '+msg(e))}
+  };
+  if(document.visibilityState==='visible')go();
+  else addEventListener('visibilitychange',function f(){if(document.visibilityState==='visible'){removeEventListener('visibilitychange',f);go()}});
+});
+$('sheet-done').onclick=()=>$('sheet').close();
+$('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))$('sheet').close()});   // a tap on the backdrop, on a wide window
+
+(async()=>{
+  if(!has){
+    BUTTONS.forEach(id=>$(id).disabled=true);
+    if(watching)return watch();
+    $('sheet').before($('computer'));document.querySelector('main').style.height='auto';   // the browser shows the code entry too, so it scrolls$('computer').querySelectorAll('.phone-only').forEach(e=>e.classList.remove('phone-only'));
+    $('stat').textContent='Open this page in the Ahead app, or enter a phone\'s code below to watch it.';
+    $('watch-row').hidden=false;$('mirror').textContent='Watch';
+    $('mirror-foot').textContent='The code is under Computer on the phone, once it shows.';
+    return;
+  }
+  if(store.get('ahead.mirror.on')&&cloudOn())mirrorStart();
+  try{
+    const l=await call('list');
+    if(!l.includes('depth.start')){$('stat').textContent='This build of Bridge has no LiDAR depth.';$('go').disabled=true;return}
+    // Each optional feature disables only its own button.
+    if(!l.includes('ble.scan')){$('cane').disabled=true;$('cane-stat').textContent='Cane: this build of Bridge has no Bluetooth.'}
+    if(!l.includes('camera.photo')||!l.includes('vision.classify')){$('ask').disabled=$('voice').disabled=true;show('ask','This build of Bridge has no camera or vision.')}
+    else if(!l.includes('speech.start'))$('voice').disabled=true;
+    $('stat').textContent='Ready. Start, or press the Action Button.';
+    canLive=l.includes('live.start');
+    if(!store.get('ahead.learned'))$('learn').showModal();
+    enroll();
+  }catch(e){$('stat').textContent=String(e)}
+})();
+</script>

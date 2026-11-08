@@ -160,8 +160,13 @@ async function enroll(request, env, headers) {
   const name = String(body?.name || "").replace(/[^\P{C}]/gu, "").trim().slice(0, 40) || "a phone";
   if (!DEVICE_ID.test(id) || !key) return json({ error: "bad request" }, 400, headers);
   const fp = await fingerprint(key);
-  if (await env.DEVICES.get(`device:${id}`)) return json({ status: "approved", fp }, 200, headers);
-  if (!(await env.DEVICES.get(`pending:${id}`))) {
+  // An id already bound to another key is refused, never rebound: a phone whose store lost its key makes a new id.
+  const sameKey = (d) => d && d.key.x === key.x && d.key.y === key.y;
+  const approved = await env.DEVICES.get(`device:${id}`, "json");
+  if (approved) return sameKey(approved) ? json({ status: "approved", fp }, 200, headers) : json({ error: "id taken" }, 409, headers);
+  const pending = await env.DEVICES.get(`pending:${id}`, "json");
+  if (pending && !sameKey(pending)) return json({ error: "id taken" }, 409, headers);
+  if (!pending) {
     if ((await env.DEVICES.list({ prefix: "pending:", limit: PENDING_MAX })).keys.length >= PENDING_MAX) return json({ error: "try later" }, 429, headers);
     await env.DEVICES.put(`pending:${id}`, JSON.stringify({ name, key, fp, since: Date.now() }), { expirationTtl: PENDING_TTL_S });
   }

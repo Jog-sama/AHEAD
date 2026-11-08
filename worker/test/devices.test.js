@@ -78,6 +78,11 @@ test("a phone enrolls, waits, is approved by the owner, then its signed asks pas
   assert.deepEqual(await res.json(), CROSSING);
   assert.equal(env.DEVICES.m.get(`use:${p.id}:${new Date().toISOString().slice(0, 10)}`), "1");
 
+  const other = await phone();
+  const rebind = new Request("https://ahead-ask.test/enroll", { method: "POST", headers: ORIGIN, body: JSON.stringify({ id: p.id, name: "x", key: other.key }) });
+  assert.equal((await worker.fetch(rebind, env)).status, 409, "an approved id never takes a second key");
+  assert.equal((await worker.fetch(p.enroll(), env)).status, 200, "the same key re-enrolling is fine");
+
   const stale = await worker.fetch(await p.ask({ image: PIXEL, question: "Can I cross?" }, Date.now() - 120_000), env);
   assert.equal(stale.status, 401);
   const stranger = await phone();

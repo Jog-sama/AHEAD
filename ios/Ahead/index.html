@@ -414,9 +414,20 @@ function bleScan(service,want){
   if(want)bleWanted.add(service);else bleWanted.delete(service);
   return bleWanted.size?call('ble.scan',{services:[...bleWanted]}):call('ble.stopScan');
 }
+// One board can serve both (firmware/cane's devkit-vl53l0x-thumb): its services, found on connect, are kept per id so the
+// second of the two attaches to the link the first opened, and a link is dropped only once neither uses it.
+const bleOffered={};
+const linkOffers=(id,service)=>(bleOffered[id]||[]).includes(service);
+function bleDrop(id){if(!(cane.connected&&cane.id===id)&&!(thumb.connected&&thumb.id===id))call('ble.disconnect',{id}).catch(()=>{})}
+async function bleConnect(id){
+  const r=await call('ble.connect',{id});
+  bleOffered[id]=(r&&r.services||[]).map(s=>String(s.uuid).toUpperCase());
+  return r;
+}
 
 async function caneScan(){
   if(!has||!cane.wanted||cane.connected||cane.scanning)return;
+  if(thumb.connected&&linkOffers(thumb.id,CANE.service))return caneAttach(thumb.id);
   cane.scanning=true;caneStatus('looking for a cane');
   try{await bleScan(CANE.service,true)}
   catch(e){cane.scanning=false;bleWanted.delete(CANE.service);caneStatus('Bluetooth, '+msg(e));return}
@@ -433,12 +444,13 @@ function caneRetry(){clearTimeout(cane.retry);if(cane.wanted&&on&&!cane.connecte
 async function caneConnect(id){
   cane.scanning=false;clearTimeout(cane.scanTimer);bleScan(CANE.service,false).catch(()=>{});
   let r;
-  try{r=await call('ble.connect',{id})}catch(e){caneStatus('connect failed, '+msg(e));return caneRetry()}
+  try{r=await bleConnect(id)}catch(e){caneStatus('connect failed, '+msg(e));return caneRetry()}
   if(!offers(r,CANE.service)){
     if(offers(r,THUMB_BLE.service)&&thumb.scanning&&!thumb.connected){thumbAttach(id);return caneScan()}
-    call('ble.disconnect',{id}).catch(()=>{});caneStatus('connect failed, not a cane');return caneRetry();
+    bleDrop(id);caneStatus('connect failed, not a cane');return caneRetry();
   }
   caneAttach(id);
+  if(offers(r,THUMB_BLE.service)&&thumb.scanning&&!thumb.connected)thumbAttach(id);
 }
 async function caneAttach(id){
   cane.scanning=false;clearTimeout(cane.scanTimer);bleScan(CANE.service,false).catch(()=>{});
@@ -449,13 +461,13 @@ async function caneAttach(id){
     cane.connected=true;cane.lost=false;cane.fault=false;cane.motorSent=null;cane.ackWant=0;cane.ackGot=null;cane.unconfirmed=false;
     alertLine();caneStatus();note('cane_connected');
     if(on)motor(state);
-  }catch(e){cane.id=null;call('ble.disconnect',{id}).catch(()=>{});caneStatus('connect failed, '+msg(e));caneRetry()}
+  }catch(e){cane.id=null;bleDrop(id);caneStatus('connect failed, '+msg(e));caneRetry()}
 }
 
 function caneDisconnect(){
   cane.wanted=false;clearTimeout(cane.retry);clearTimeout(cane.scanTimer);
   if(cane.scanning){cane.scanning=false;bleScan(CANE.service,false).catch(()=>{})}
-  if(cane.connected){motor('far');cane.connected=false;call('ble.disconnect',{id:cane.id}).catch(()=>{})}
+  if(cane.connected){motor('far');cane.connected=false;bleDrop(cane.id)}
   caneD=null;$('cane-d').textContent='';cane.lost=false;alertLine();caneStatus('not connected');
   if(on)settle(fuse());
 }
@@ -708,6 +720,7 @@ function thumbNeutral(){
 
 async function thumbScan(){
   if(!has||thumb.connected||thumb.scanning)return;
+  if(cane.connected&&linkOffers(cane.id,THUMB_BLE.service))return thumbAttach(cane.id);
   thumb.scanning=true;thumbStatus('looking for the thumb lever');
   try{await bleScan(THUMB_BLE.service,true)}
   catch(e){thumb.scanning=false;bleWanted.delete(THUMB_BLE.service);thumbStatus('Bluetooth, '+msg(e));return}
@@ -721,12 +734,13 @@ async function thumbScan(){
 async function thumbConnect(id){
   thumb.scanning=false;clearTimeout(thumb.scanTimer);bleScan(THUMB_BLE.service,false).catch(()=>{});
   let r;
-  try{r=await call('ble.connect',{id})}catch(e){return thumbStatus('connect failed, '+msg(e))}
+  try{r=await bleConnect(id)}catch(e){return thumbStatus('connect failed, '+msg(e))}
   if(!offers(r,THUMB_BLE.service)){
     if(offers(r,CANE.service)&&cane.scanning&&!cane.connected){caneAttach(id);return thumbScan()}   // a board whose cached name misled
-    call('ble.disconnect',{id}).catch(()=>{});return thumbStatus('connect failed, not a thumb lever');
+    bleDrop(id);return thumbStatus('connect failed, not a thumb lever');
   }
   thumbAttach(id);
+  if(offers(r,CANE.service)&&cane.scanning&&!cane.connected)caneAttach(id);
 }
 const offers=(r,service)=>(r&&r.services||[]).some(s=>String(s.uuid).toUpperCase()===service);
 async function thumbAttach(id){
@@ -736,13 +750,13 @@ async function thumbAttach(id){
     await call('ble.subscribe',{id,service:THUMB_BLE.service,characteristic:THUMB_BLE.status});
     Object.assign(thumb,{connected:true,lost:false,held:null,flags:null,sent:null,direction:'unknown'});gate.reset();
     thumbWrite(THUMB.NEUTRAL);note('thumb_connected');thumbStatus();
-  }catch(e){thumb.id=null;call('ble.disconnect',{id}).catch(()=>{});thumbStatus('connect failed, '+msg(e))}
+  }catch(e){thumb.id=null;bleDrop(id);thumbStatus('connect failed, '+msg(e))}
 }
 function thumbDisconnect(){
   thumbTest(null);thumb.lost=false;
   clearTimeout(thumb.scanTimer);clearTimeout(thumb.retry);
   if(thumb.scanning){thumb.scanning=false;bleScan(THUMB_BLE.service,false).catch(()=>{})}
-  if(thumb.connected){thumbWrite(THUMB.NEUTRAL);thumb.connected=false;call('ble.disconnect',{id:thumb.id}).catch(()=>{})}
+  if(thumb.connected){thumbWrite(THUMB.NEUTRAL);thumb.connected=false;bleDrop(thumb.id)}
   thumb.direction='unknown';thumbStatus('not connected');
 }
 $('thumb-connect').onclick=()=>thumb.connected||thumb.scanning?thumbDisconnect():thumbScan();

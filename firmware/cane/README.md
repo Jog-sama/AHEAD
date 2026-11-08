@@ -109,6 +109,6 @@ measured here.
 
 ## Results
 
-Written 11-07, before the parts arrived; every build compiles. Run on the ESP32 DevKit V1 with the VL53L0X and the servo (`devkit-vl53l0x-thumb`, 11-08): the app connects, reconnects by itself, and drives the lever over the same link; the button on GPIO 4 and the 0.5 m buzz are not yet checked by hand. Open: which JSN-SR04T revision arrives and
+Written 11-07, before the parts arrived; every build compiles. Run on the ESP32 DevKit V1 with the VL53L0X and the servo (`devkit-vl53l0x-thumb`, 11-08): the app connects, reconnects by itself, and drives the lever over the same link. Run on the C3 with the same parts (`vl53l0x-thumb`, servo on GPIO 10, a piezo buzzer straight on GPIO 7 in place of the motor, 11-08): the sensor, the servo and the buzz under 0.5 m all worked. Open: which JSN-SR04T revision arrives and
 whether it runs from 3.3 V; what the ultrasonic reads off glass at 15° and 30°; false pulses per 100 m walked with
 the cane swinging; the ERM's inrush on the cell and whether a brown-out ever shows in the monitor.

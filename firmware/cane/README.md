@@ -22,12 +22,13 @@ the board from it; what its 5V pin carries while on the cell is not recorded her
 | 21 | button, to GND | internal pull-up; the board's BOOT button (GPIO 9) counts as the same button, for the bench. Not GPIO 2: the ROM reads it as a strapping pin at reset |
 | 0 | battery, optional | the cell through 100 kΩ to GPIO 0, 100 kΩ and 100 nF from there to GND (the ADC wants a low source impedance); build with `-DCANE_BATTERY_PIN=0` (and `-DCANE_BATTERY_DIVIDER=` the ratio if not 2). Unwired, status says 0xFF |
 | 8 | the board's LED | on while a phone is connected |
+| 10 | thumb lever servo signal | the `vl53l0x-thumb` build only; servo red to 5V, brown to GND. On USB the 5V pin carries the USB 5 V; on the cell alone it is unmeasured |
 
-Every wired pin is a `-DCANE_*_PIN` build flag (`src/main.cpp`, top).
+Every wired pin is a `-DCANE_*_PIN` build flag (`src/main.cpp`, top), and the servo's is `-DSERVO_PIN` in `platformio.ini`. Not 2, 8 or 9 (strapping) or 18 and 19 (USB).
 
 The `devkit-*` builds are the same firmware on an ESP32 DevKit V1 (WROOM-32, the bench spare, 2026-11-07), whose pins
 differ: button D4 to D13, which the firmware holds low because the board has only two GND pins (its BOOT button on 0
-counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19, motor 23, LED 2. Its serial port is a CP2102, `/dev/cu.usbserial-*`; with no board plugged in, PlatformIO may pick a Bluetooth speaker's port instead, so name it: `--upload-port /dev/cu.usbserial-0001`. Not 1 or 3, which are that port, and not 6 to 11,
+counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19, motor 23, LED 2, servo 26 in `devkit-vl53l0x-thumb`. Its serial port is a CP2102, `/dev/cu.usbserial-*`; with no board plugged in, PlatformIO may pick a Bluetooth speaker's port instead, so name it: `--upload-port /dev/cu.usbserial-0001`. Not 1 or 3, which are that port, and not 6 to 11,
 the flash.
 
 ## Build and flash
@@ -37,7 +38,8 @@ cd firmware/cane
 pio run -t upload                    # the JSN-SR04T, default
 pio run -e vl53l0x -t upload         # the VL53L0X instead, for the bench until the ultrasonic arrives
 pio run -e devkit-vl53l0x -t upload  # either, with devkit- in front, on the ESP32 DevKit V1
-pio run -e devkit-vl53l0x-thumb -t upload  # the DevKit with the thumb lever's servo too, on GPIO 26 (firmware/thumb/src/config.h)
+pio run -e vl53l0x-thumb -t upload  # the C3 with the thumb lever's servo too, on GPIO 10
+pio run -e devkit-vl53l0x-thumb -t upload  # the same on the DevKit, servo on GPIO 26
 pio device monitor                   # one line a second: mm=830 (790-860) local=2 phone=0 played=2 fault=0 bat=255 ble=advertising up=42s reset=1
 ```
 

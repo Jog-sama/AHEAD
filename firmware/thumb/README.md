@@ -4,8 +4,8 @@ TactileVector's one SG90 under the thumb, driven by the Ahead app over Bluetooth
 board is a BLE peripheral named `Thumb` and the last two bytes of its address (`Thumb 3F2A`); the app's page (`ios/Ahead/index.html`, Settings › Thumb lever) decides left,
 right or neutral from the phone's LiDAR corridor and writes the angle. No Wi-Fi, no token, no IP address, no Mac.
 The Wi-Fi sketch in `firmware/TactileVector/` stays for the Mac path; both share its `Safety.h`.
-The servo and its service are `src/Thumb.h`, which the cane firmware also carries (`devkit-vl53l0x-thumb` in
-`firmware/cane`), so one board can be both: it advertises as `Cane` and its code, with this service in the scan response, and the page
+The servo and its service are `src/Thumb.h`, which the cane firmware also carries (`vl53l0x-thumb` on the C3, servo on GPIO 10, and
+`devkit-vl53l0x-thumb` on the DevKit, GPIO 26, in `firmware/cane`, whose build names the pin), so one board can be both: it advertises as `Cane` and its code, with this service in the scan response, and the page
 attaches the lever to the cane's link, dropping the link only once neither uses it.
 
 ## Configure, build, flash

@@ -4,7 +4,7 @@ Can the cane itself warn of what is at chest and head height, the one gap a cane
 head-level collisions are the common accident of blind pedestrians, most of them outdoors, tree branches first)? An
 ESP32-C3 on the cane's grip: one distance sensor angled up along the cane's axis, one button, one coin vibration motor
 under the index finger. It is a BLE peripheral named `Cane`; the Ahead app's page fuses its distance with the phone's
-LiDAR corridor and writes an urgency back. The cane plays the higher of the phone's urgency and its own, and the
+LiDAR corridor and writes an urgency back. The cane plays the higher of the phone's urgency and its own, fast pulses only, and the
 phone's expires 1.5 s after it was written, so a dropped link neither silences the cane nor leaves it buzzing. Nothing
 on the cane talks Wi-Fi.
 
@@ -37,26 +37,29 @@ cd firmware/cane
 pio run -t upload                    # the JSN-SR04T, default
 pio run -e vl53l0x -t upload         # the VL53L0X instead, for the bench until the ultrasonic arrives
 pio run -e devkit-vl53l0x -t upload  # either, with devkit- in front, on the ESP32 DevKit V1
-pio device monitor                   # one line a second: mm=1830 (1790-1860) local=1 phone=0 played=1 fault=0 bat=255 ble=advertising up=42s reset=1
+pio device monitor                   # one line a second: mm=830 (790-860) local=2 phone=0 played=2 fault=0 bat=255 ble=advertising up=42s reset=1
 ```
 
 The second number pair is the second's lowest and highest reading; `bat=255` is 0xFF, no divider wired.
 
 ## GATT
 
-Shared with the Ahead app's page (jonasneves/phone-bridge, `docs/ahead/index.html`); a change here is a change there.
+Shared with the Ahead app's page (`ios/Ahead/index.html`); a change here is a change there.
 
 | | UUID `c0de000N-ca9e-4a11-8e8d-000000000001` | Bytes |
 | --- | --- | --- |
 | service | N = 1, advertised | |
 | distance | N = 2, notify, 10 Hz | uint16 little-endian mm along the cane's axis; 0xFFFF nothing in reach |
 | button | N = 3, notify | uint8: 1 short press, on release; 2 long press, when 600 ms down passes (no 1 follows) |
-| motor | N = 4, write without response | uint8: 0 silent, 1 slow, 2 fast; honoured for 1.5 s from the write |
+| motor | N = 4, write without response | uint8: 0 silent, 1 slow (held and echoed, plays nothing on the cane), 2 fast; honoured for 1.5 s from the write |
 | status | N = 5, notify, every 5 s and on change (battery moves in steps of 2) | battery percent (0xFF unknown), flags: bit0 sensor fault, bit1 the pulses playing are the phone's, bit2 the cane's own cue is settled; then the phone's motor value as the cane holds it (0 once 1.5 s pass without a write), which is how the page knows its writes arrive |
 
-Motor code: slow is 100 ms on every 600 ms, fast 100 ms on every 200 ms; a state change starts with a pulse. The
-cane's own state is slow under 2.5 m and fast under 1.0 m, up at once and down after 4 frames (400 ms) at the lower
-level. Played = max(own, phone's if under 1.5 s old); a phone write of 0 never silences the cane's own warning.
+Motor code: fast pulses only, 100 ms on every 200 ms, under 1.0 m; a state change starts with a pulse. Slow pulses
+from 2.5 m stay on the phone's chest: steady buzzing in the grip masks the ground texture the cane carries up its
+shaft, and the bench buzzer beeped at everything in the room. The cane's own state is fast under 1.0 m, up at once
+and down after 4 frames (400 ms). Played = max(own, phone's if under 1.5 s old), and only fast plays; a phone write
+of 0 never silences the cane's own warning. The motor stays off until a phone has connected once since power-on, so
+the board is quiet on the bench; after that a dropped link leaves the cane warning on its own.
 A reading that stays within 10 cm for 5 s settles: the cane's own cue rests, after five seconds of reporting the same
 thing, and comes back with a pulse the moment the reading moves by 10 cm or more. Walking changes the reading, so a
 walker never settles; standing at a counter does. The status line says `settled`, status bit2 is set, and the phone's
@@ -80,8 +83,8 @@ service: each characteristic carries its name as a user description.
    a wall at a measured distance; the two bytes are little-endian, so `0x38 0x07` is 0x0738 = 1848 mm. `FF FF` is
    nothing in reach.
 2. Button: subscribe to `button`; a tap gives `01` on release, a hold gives `02` at 0.6 s and nothing on release.
-3. Motor: on `motor`, write `01` (write without response, UInt8): slow pulses for 1.5 s, then silence unless the
-   sensor sees something under 2.5 m; `02`: fast pulses. Write `00` with a hand under 1 m of the sensor: it keeps
+3. Motor: before connecting, a hand under 1 m of the sensor plays nothing. Connected, on `motor`, write `01`
+   (write without response, UInt8): no pulses, and the status echoes `01`; `02`: fast pulses for 1.5 s. Write `00` with a hand under 1 m of the sensor: it keeps
    pulsing fast, since the cane's own state wins.
 4. Status: subscribe to `status`; `FF 00` every 5 s with no battery divider and the sensor answering; `FF 01` with
    the sensor unplugged, and the motor stops within a second even while a `02` is live; `FF 02` while a written state plays.

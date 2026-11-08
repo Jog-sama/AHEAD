@@ -7,6 +7,9 @@
 #include <VL53L0X.h>
 #include <Wire.h>
 #endif
+#ifdef CANE_THUMB
+#include "Thumb.h"  // the thumb lever's servo and service on this same board, from firmware/thumb
+#endif
 
 // Free on a C3 SuperMini: 8 is the LED, 9 the boot button, 18 and 19 the USB port, and 2 is a strapping pin that must
 // read high at reset, so no button goes there. platformio.ini's devkit section remaps every pin for a classic ESP32.
@@ -197,10 +200,16 @@ struct Server : NimBLEServerCallbacks {
   void onConnect(NimBLEServer*, NimBLEConnInfo& info) override {
     connected = true;
     paired = true;
+#ifdef CANE_THUMB
+    thumb::onConnect();
+#endif
     Serial.printf("ble: connected %s\n", info.getAddress().toString().c_str());
   }
   void onDisconnect(NimBLEServer*, NimBLEConnInfo&, int reason) override {
     connected = false;
+#ifdef CANE_THUMB
+    thumb::onDisconnect();
+#endif
     Serial.printf("ble: disconnected (%d), advertising\n", reason);
     NimBLEDevice::startAdvertising();
   }
@@ -225,6 +234,14 @@ void startBle() {
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
   adv->setName("Cane");
   adv->addServiceUUID(kServiceUuid);
+#ifdef CANE_THUMB
+  // Two 128-bit UUIDs and the name overflow one 31-byte packet, so the lever's goes in the scan response.
+  thumb::addService(server);
+  NimBLEAdvertisementData scan;
+  scan.addServiceUUID(thumb::kServiceUuid);
+  adv->setScanResponseData(scan);
+  adv->enableScanResponse(true);
+#endif
   adv->start();
 }
 
@@ -303,6 +320,9 @@ void setup() {
   if (esp_task_wdt_init(&wdt) == ESP_ERR_INVALID_STATE) esp_task_wdt_reconfigure(&wdt);
   esp_task_wdt_add(nullptr);
 
+#ifdef CANE_THUMB
+  thumb::setup();
+#endif
   xTaskCreate(sensorTask, "sensor", 4096, nullptr, 2, nullptr);
   startBle();
   Serial.printf("cane: %s, advertising\n", esp_reset_reason() == ESP_RST_BROWNOUT ? "after a brown-out" : "up");
@@ -358,6 +378,9 @@ void loop() {
   digitalWrite(CANE_LED_PIN, connected ? CANE_LED_ON : !CANE_LED_ON);
 
   pollButton(now);
+#ifdef CANE_THUMB
+  thumb::loop(now);
+#endif
 
   if (now - battery_at >= 125) {
     battery_at = now;
@@ -383,6 +406,11 @@ void loop() {
     Serial.printf(" local=%u%s phone=%u played=%u fault=%d bat=%u ble=%s up=%lus reset=%d\n", local_state,
                   settled ? " settled" : "", phone, played, fault, battery, connected ? "connected" : "advertising",
                   now / 1000, (int)esp_reset_reason());
+#ifdef CANE_THUMB
+    Serial.print("  thumb: ");
+    thumb::print();
+    Serial.println();
+#endif
     mm_min = kNoReading, mm_max = 0;
   }
   delay(5);

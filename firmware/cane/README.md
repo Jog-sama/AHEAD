@@ -37,6 +37,7 @@ cd firmware/cane
 pio run -t upload                    # the JSN-SR04T, default
 pio run -e vl53l0x -t upload         # the VL53L0X instead, for the bench until the ultrasonic arrives
 pio run -e devkit-vl53l0x -t upload  # either, with devkit- in front, on the ESP32 DevKit V1
+pio run -e devkit-vl53l0x-thumb -t upload  # the DevKit with the thumb lever's servo too, on GPIO 26 (firmware/thumb/src/config.h)
 pio device monitor                   # one line a second: mm=830 (790-860) local=2 phone=0 played=2 fault=0 bat=255 ble=advertising up=42s reset=1
 ```
 

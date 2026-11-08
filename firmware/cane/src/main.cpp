@@ -221,8 +221,23 @@ NimBLECharacteristic* characteristic(NimBLEService* svc, const char* uuid, uint3
   return chr;
 }
 
+// "Cane 3F2A" (firmware/thumb names its board the same way): the base and the last two bytes of the board's Bluetooth address, so two boards in range read apart in
+// the app and on a label. After NimBLEDevice::init.
+std::string boardName(const char* base) {
+  std::string a = NimBLEDevice::getAddress().toString();  // aa:bb:cc:dd:ee:ff
+  std::string id = a.substr(12, 2) + a.substr(15, 2);
+  for (char& c : id) c = toupper(c);
+  return std::string(base) + " " + id;
+}
+
+std::string name;
+
+// The name goes in the scan response with the lever's service, since flags, the cane's 128-bit UUID and an 11-byte name
+// overflow one 31-byte packet.
 void startBle() {
   NimBLEDevice::init("Cane");
+  name = boardName("Cane");
+  NimBLEDevice::setDeviceName(name);
   NimBLEServer* server = NimBLEDevice::createServer();
   server->setCallbacks(&server_callbacks);
   NimBLEService* svc = server->createService(kServiceUuid);
@@ -232,16 +247,15 @@ void startBle() {
   motor->setCallbacks(&motor_write);
   status_chr = characteristic(svc, kStatusUuid, NIMBLE_PROPERTY::NOTIFY, "status");
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-  adv->setName("Cane");
   adv->addServiceUUID(kServiceUuid);
-#ifdef CANE_THUMB
-  // Two 128-bit UUIDs and the name overflow one 31-byte packet, so the lever's goes in the scan response.
-  thumb::addService(server);
   NimBLEAdvertisementData scan;
+  scan.setName(name);
+#ifdef CANE_THUMB
+  thumb::addService(server);
   scan.addServiceUUID(thumb::kServiceUuid);
+#endif
   adv->setScanResponseData(scan);
   adv->enableScanResponse(true);
-#endif
   adv->start();
 }
 
@@ -325,7 +339,8 @@ void setup() {
 #endif
   xTaskCreate(sensorTask, "sensor", 4096, nullptr, 2, nullptr);
   startBle();
-  Serial.printf("cane: %s, advertising\n", esp_reset_reason() == ESP_RST_BROWNOUT ? "after a brown-out" : "up");
+  Serial.printf("cane: %s, advertising as %s\n", esp_reset_reason() == ESP_RST_BROWNOUT ? "after a brown-out" : "up",
+                name.c_str());
 }
 
 void loop() {

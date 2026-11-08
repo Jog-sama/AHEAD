@@ -28,17 +28,18 @@ crossing verdict, the model's distances overwritten by LiDAR, an abstain flag, s
 
 `POST /` from an approved phone, or with `Authorization: Bearer <OWNER_TOKEN>`; anything else is 401.
 
-A phone never holds a shared secret. On first launch the page makes a P-256 key that never leaves the phone and sends
-`POST /enroll` `{id, name, key}` (a UUID, the phone's name, the public JWK); the answer is `{status: "pending", fp}`
-until the owner runs `./devices.sh approve <id>` (`list` shows who is waiting with the same eight-character `fp` the
-phone shows, so the owner approves the phone in hand and not one that enrolled under the same name; `revoke <id>`
-removes a phone; the token comes from `.dev.vars`). Twenty phones may wait at once. `GET /enroll/<id>` answers the status. An approved phone signs each ask: headers `X-Device`,
-`X-Time` (ms) and `X-Signature`, ECDSA P-256 with SHA-256 over `<time>.<sha256 hex of the body>`, base64url; a time
-more than a minute off is refused, and a phone gets 300 asks a day (429 past that, `reason: "daily limit"`; the
-count is a KV read then write, so a burst can pass it by a few, which is cost control, not a fence). A
-pending phone's ask is 401 `{error: "pending approval"}`, which the page shows. Keys and counts live in the `DEVICES`
-KV namespace. The mirror's phone proves itself the same way, with a signature over `mirror.<code>.<time>`, or with the owner
-token; a revoked phone's open mirror socket lasts until it closes.
+A phone never holds a shared secret. On first launch the page makes a P-256 key that stays on the phone and sends
+`POST /enroll` `{id, name, key}` (UUID, phone name, public JWK). The answer is `{status: "pending", fp}` until the
+owner runs `./devices.sh approve <id>`; `list` shows each waiting phone with the same eight-character `fp` the phone
+shows, so the owner approves the phone in hand and not a stranger with the same name; `revoke <id>` removes one; the
+token comes from `.dev.vars`. A waiting entry lasts an hour, renewed by the page every 20 s, and twenty may wait, so a
+stranger filling the list locks enrollment out for an hour at most. `GET /enroll/<id>` answers the status. An approved
+phone signs each ask: headers `X-Device`, `X-Time` (ms) and `X-Signature`, ECDSA P-256 with SHA-256 over
+`<time>.<sha256 hex of the body>`, base64url; a time more than a minute off is refused; 300 asks a day per phone, then
+429 `reason: "daily limit"` (the KV count can be passed by a few in a burst: cost control, not a fence). A pending
+phone's ask is 401 `{error: "pending approval"}`, which the page shows. Keys and counts live in the `DEVICES` KV
+namespace. The mirror's phone proves itself with a signature over `mirror.<code>.<time>` or the owner token; a revoked
+phone's open mirror socket lasts until it closes.
 
 `GET /mirror/<code>` upgraded to a WebSocket is the demo mirror: the phone connects with `?role=send` and says
 `{type: "hello", token}` or `{type: "hello", device: {id, time, sig}}` within 5 s (else closed with 4001); a computer

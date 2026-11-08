@@ -112,7 +112,7 @@ export function checkToken(header, secret) {
 const DEVICE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SKEW_MS = 60_000;
 const DAY_CAP = 300;
-const PENDING_TTL_S = 7 * 86400;
+const PENDING_TTL_S = 3600;  // approval happens with the phone in hand; the page re-enrolls while it waits
 const PENDING_MAX = 20;
 
 const fromB64url = (s) => Uint8Array.from(atob(String(s).replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));

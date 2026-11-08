@@ -3,7 +3,10 @@
   "name": "ahead-ask",
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
-  "observability": { "enabled": true }
-  // Secrets ANTHROPIC_API_KEY and SHARED_TOKEN come from `wrangler secret put`
+  "observability": { "enabled": true },
+  "durable_objects": { "bindings": [{ "name": "MIRROR", "class_name": "Mirror" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mirror"] }],
+  "kv_namespaces": [{ "binding": "DEVICES", "id": "4038b2c5949a4c3ca1cbd3174ec0635c" }]
+  // Secrets ANTHROPIC_API_KEY and OWNER_TOKEN come from `wrangler secret put`
   // (and .dev.vars locally), never from this file.
 }

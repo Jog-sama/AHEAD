@@ -3,21 +3,21 @@
 Can the cane itself warn of what is at chest and head height, the one gap a cane leaves (Manduchi & Kurniawan 2011:
 head-level collisions are the common accident of blind pedestrians, most of them outdoors, tree branches first)? An
 ESP32-C3 on the cane's grip: one distance sensor angled up along the cane's axis, one button, one coin vibration motor
-under the index finger. It is a BLE peripheral named `Cane`; phone-bridge's page fuses its distance with the phone's
+under the index finger. It is a BLE peripheral named `Cane`; the Ahead app's page fuses its distance with the phone's
 LiDAR corridor and writes an urgency back. The cane plays the higher of the phone's urgency and its own, and the
 phone's expires 1.5 s after it was written, so a dropped link neither silences the cane nor leaves it buzzing. Nothing
 on the cane talks Wi-Fi.
 
 ## Pins
 
-ESP32-C3 SuperMini on its expansion board (AGENTS.md § Boards). The expansion board charges a 1S lithium cell and runs
+ESP32-C3 SuperMini on its [AITRIP expansion board](https://www.amazon.com/dp/B0DCZGQMPL). The expansion board charges a 1S lithium cell and runs
 the board from it; what its 5V pin carries while on the cell is not recorded here, so nothing below depends on it.
 
 | GPIO | Wire | Note |
 | --- | --- | --- |
 | 5 | ultrasonic TRIG | |
 | 6 | ultrasonic ECHO | a JSN-SR04T-2.0 or -3.0, rated 3–5.5 V, from the 3V3 pin, so ECHO is 3.3 V; the C3's pins take no more. The 5 V-only revision is not covered |
-| 4, 3 | VL53L0X SDA, SCL | the `vl53l0x` build; 3V3 and GND, as in `gateway/`'s distance add-on |
+| 4, 3 | VL53L0X SDA, SCL | the `vl53l0x` build; 3V3 and GND |
 | 7 | motor, through an NPN | 7 → 1 kΩ → base of a 2N2222A or S8050; emitter to GND; the motor between 3V3 and the collector, with 100 µF from 3V3 to GND beside it against the inrush (the monitor's first line says `after a brown-out` if that was not enough); a 1N4148 across the motor, cathode to 3V3; 10 kΩ from base to GND, which is what holds the motor off while the pins float through a reset or brown-out |
 | 21 | button, to GND | internal pull-up; the board's BOOT button (GPIO 9) counts as the same button, for the bench. Not GPIO 2: the ROM reads it as a strapping pin at reset |
 | 0 | battery, optional | the cell through 100 kΩ to GPIO 0, 100 kΩ and 100 nF from there to GND (the ADC wants a low source impedance); build with `-DCANE_BATTERY_PIN=0` (and `-DCANE_BATTERY_DIVIDER=` the ratio if not 2). Unwired, status says 0xFF |
@@ -33,7 +33,7 @@ the flash.
 ## Build and flash
 
 ```sh
-cd cane
+cd firmware/cane
 pio run -t upload                    # the JSN-SR04T, default
 pio run -e vl53l0x -t upload         # the VL53L0X instead, for the bench until the ultrasonic arrives
 pio run -e devkit-vl53l0x -t upload  # either, with devkit- in front, on the ESP32 DevKit V1
@@ -44,7 +44,7 @@ The second number pair is the second's lowest and highest reading; `bat=255` is 
 
 ## GATT
 
-Shared with phone-bridge's page; a change here is a change there.
+Shared with the Ahead app's page (jonasneves/phone-bridge, `docs/ahead/index.html`); a change here is a change there.
 
 | | UUID `c0de000N-ca9e-4a11-8e8d-000000000001` | Bytes |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ service: each characteristic carries its name as a user description.
 
 ## Bench log
 
-`results/bench-log.csv`: one row per reading, its header the columns. `read_mm` from the monitor line (the second's range in the notes when it swings). Conditions to cover: sun, shade,
+`eval/bench-log.csv`, at the repo root: one row per reading. `read_m` from the monitor line's mm (the second's range in the notes when it swings). Conditions to cover: sun, shade,
 rain, glass at 0°, 15° and 30° incidence, foliage, signposts; surfaces as they are (brick, painted metal, glass,
 leaves, cloth). The ultrasonic and the VL53L0X side by side where both are at hand, since the question the log
 answers is which sensor to keep: the VL53L0X ranges about 0.8 m on white and 0.5 m on grey in daylight, an

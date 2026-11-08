@@ -48,6 +48,8 @@ The Ahead app runs the LiDAR cue on the iPhone and drives the lever over Bluetoo
 2. Flash the lever's board with [firmware/thumb](firmware/thumb/README.md).
 3. In the app: Settings › Thumb lever › Connect, calibrate the two angles, Done, Start.
 
+A walk starts and stops without the screen: the Action Button, Siri ("Start Ahead"), VoiceOver's two-finger double tap, or Back Tap, after adding Ahead's Start or Stop Walk to a shortcut and picking it in Settings › Accessibility › Touch › Back Tap. The phone says which.
+
 The phone's cue only sees from 0.6 to 2.0 m above the ground. A side counts as open only when the nearest thing in it stands more than 1.65 m ahead, so open floor with nothing behind it reads as unsure and the lever stays neutral; it also stays neutral while ARKit tracking is not normal. Manual and green-marker modes are Mac-only.
 
 ## Run on the Mac

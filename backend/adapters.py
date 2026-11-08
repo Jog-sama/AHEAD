@@ -1,5 +1,7 @@
 """Optional sponsor boundaries. No endpoint or credential is inferred."""
 
+import hashlib
+import hmac
 from typing import Protocol
 from urllib.parse import parse_qs, urlparse
 
@@ -42,7 +44,7 @@ class HazardEvent(BaseModel):
 class InformerWebhook:
     """Explicit use only. URL must be issued by real Informer deployment; not in CV loop."""
 
-    def __init__(self, deployed_signed_url: str):
+    def __init__(self, deployed_signed_url: str, shared_secret: str):
         url = urlparse(deployed_signed_url)
         if (
             url.scheme != "https"
@@ -53,14 +55,26 @@ class InformerWebhook:
             or url.fragment
         ):
             raise ValueError("Supply the exact HTTPS signed webhook URL issued by Informer")
+        if len(shared_secret) < 32:
+            raise ValueError("Set a 32+ character Informer webhook secret")
         self._url = deployed_signed_url
+        self._secret = shared_secret.encode()
 
     async def send(self, event: HazardEvent) -> bool:
         try:
+            payload = event.model_dump_json().encode()
+            signature = hmac.new(self._secret, payload, hashlib.sha256).hexdigest()
             async with httpx.AsyncClient(
                 timeout=5, follow_redirects=False, trust_env=False
             ) as client:
-                result = await client.post(self._url, json=event.model_dump(mode="json"))
+                result = await client.post(
+                    self._url,
+                    content=payload,
+                    headers={
+                        "content-type": "application/json",
+                        "x-ahead-signature": signature,
+                    },
+                )
                 result.raise_for_status()
                 return True
         except httpx.HTTPError:

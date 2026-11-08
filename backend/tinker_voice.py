@@ -8,7 +8,7 @@ import asyncio
 import base64
 import os
 
-from .spatial_voice import local_answer
+from .spatial_voice import grounded_candidates, local_answer
 
 
 def messages_for(jpeg, question, allowed=None):
@@ -40,6 +40,7 @@ class TinkerVoice:
     def __init__(self):
         self.model = os.getenv("TV_TINKER_MODEL", "thinkingmachines/Inkling-2-Small")
         self.checkpoint = os.getenv("TV_TINKER_CHECKPOINT")
+        self.allow_base = os.getenv("TV_TINKER_ALLOW_BASE") == "1"
         self.client = self.renderer = None
         self.sdk = None
         self.lock = asyncio.Lock()
@@ -56,6 +57,8 @@ class TinkerVoice:
         return tinker, renderer, tinker.ServiceClient()
 
     async def setup(self):
+        if not self.checkpoint and not self.allow_base:
+            raise RuntimeError("Configure a trained TV_TINKER_CHECKPOINT")
         self.sdk, self.renderer, service = await asyncio.to_thread(self.load_runtime)
         self.client = await service.create_sampling_client(
             **({"model_path": self.checkpoint} if self.checkpoint else {"base_model": self.model})
@@ -68,7 +71,9 @@ class TinkerVoice:
             if self.client is None:
                 await self.setup()
             grounded = local_answer(question, decision, cue)["phrase"]
-            allowed = [grounded, "Scene uncertain. Hold position."]
+            allowed = grounded_candidates(question, decision, cue)
+            if "Scene uncertain. Hold position." not in allowed:
+                allowed.append("Scene uncertain. Hold position.")
             prompt = await asyncio.to_thread(
                 self.renderer.build_generation_prompt, messages_for(jpeg, question, allowed)
             )
@@ -80,7 +85,16 @@ class TinkerVoice:
                 ),
             )
             message, _ = self.renderer.parse_response(response.sequences[0].tokens)
-            phrase = message.get("content")
+            phrase = (
+                message.get("content")
+                if isinstance(message, dict)
+                else getattr(message, "content", None)
+            )
+            if not isinstance(phrase, str) and isinstance(phrase, list):
+                phrase = "".join(
+                    p.get("text", "") if isinstance(p, dict) else getattr(p, "text", "")
+                    for p in phrase
+                )
             if not isinstance(phrase, str) or phrase.strip() not in allowed:
                 return {
                     "phrase": grounded,

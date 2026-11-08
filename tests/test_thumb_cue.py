@@ -2,11 +2,13 @@
 
 Each scene is rendered once as an ARKit depth map. backend/arkit_depth.py decides from the raw map; the page decides
 from the corridor the Ahead app's shell would compute from the same map (Bridge/Depth.swift in phone-bridge,
-re-implemented in `corridor` below), through tests/thumb_cue_eval.cjs.
+re-implemented in `corridor` below), through tests/thumb_cue_eval.cjs. The page ports the single-frame (legacy)
+policy, so that is the reference; the tests at the end fail when a constant the two share changes on one side only.
 """
 import base64
 import json
 import math
+import re
 import shutil
 import subprocess
 from io import BytesIO
@@ -17,9 +19,20 @@ import pytest
 from PIL import Image
 
 from backend.arkit_depth import ARKitDepthVision, ARKitPacket
+from backend.config import Settings
+from backend.obstacles import choose_direction
 
 EVAL = Path(__file__).with_name("thumb_cue_eval.cjs")
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node runs the page's cue")
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def legacy_policy(monkeypatch):
+    # The page has no pose history, so it cannot follow a temporal policy; compare it with the one-frame planner.
+    monkeypatch.setenv("TV_NAV_POLICY", "legacy")
+
 
 DW, DH, IW, IH = 80, 60, 640, 480
 FX = FY = 550.0
@@ -214,3 +227,29 @@ def test_no_cue_unless_tracking_is_normal():
                             {"corridor": LEFT_BLOCKED, "tracking": "limited", "t": 200},
                             {"corridor": LEFT_BLOCKED, "tracking": None, "t": 300}]}])[0]
     assert [f["angle"] for f in out] == [90, 100, 90, 90]
+
+
+# A change to a shared constant on one side fails here; the fix is to change the other side too.
+LEVELS = [0, .1, .12, .2, .5, .75, .8, .82, .9, 1]
+
+
+def test_lane_choice_matches_the_macs_on_a_grid_of_evidence():
+    pairs = [([fl, fc, fr], [bl, 0, br]) for fl in LEVELS[::3] for fc in LEVELS for fr in LEVELS[::3]
+             for bl in (0, .2, .35) for br in (0, .2, .35)]
+    pairs += [([1, 1, 1], [0, b, 0]) for b in LEVELS]
+    got = page({"choose": pairs})["choose"]
+    want = [choose_direction(f, b, 1.0)[0] for f, b in pairs]
+    bad = [(p, g, w) for p, g, w in zip(pairs, got, want) if g != w]
+    assert not bad, f"page thumbChoose differs from backend/obstacles.py choose_direction: {bad[:5]}"
+
+
+def test_angles_match_the_firmware_and_the_macs_defaults():
+    tv = ROOT / "firmware/TactileVector"
+    safety = next(p for p in (tv / "Safety.h", tv / "include/Safety.h") if p.exists()).read_text()
+    fw = {k: int(v) for k, v in re.findall(r"constexpr \w+ (\w+) = (\d+);", safety)}
+    t = page({"choose": []})["THUMB"]
+    assert (t["MIN"], t["NEUTRAL"], t["MAX"]) == (fw["MIN_ANGLE"], fw["NEUTRAL"], fw["MAX_ANGLE"])
+    html = (ROOT / "ios/Ahead/index.html").read_text()
+    s = Settings.__dataclass_fields__
+    assert f"store.get('ahead.thumb.left'))||{s['left'].default}" in html
+    assert f"store.get('ahead.thumb.right'))||{s['right'].default}" in html

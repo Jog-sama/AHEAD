@@ -117,10 +117,18 @@ test("the mirror accepts a device's signature over mirror.<time> in place of the
   const m = new Mirror(ctx, env);
   const ws = { open: true, sent: [], att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, send(t) { this.sent.push(JSON.parse(t)); }, close(c) { this.open = false; this.closed = c; }, serializeAttachment(a) { this.att = a; }, deserializeAttachment() { return this.att; } };
   ctx.acceptWebSocket(ws, ["send"]);
+  const viewer = { open: true, sent: [], att: null, send(t) { this.sent.push(JSON.parse(t)); }, close() { this.open = false; }, serializeAttachment() {}, deserializeAttachment() { return null; } };
+  ctx.acceptWebSocket(viewer, ["watch"]);
   const time = Date.now();
-  await m.webSocketMessage(ws, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: await p.sign(`mirror.ABCDEFGH.${time}`) } }));
-  assert.equal(ws.closed, undefined);
+  // The snapshot follows the hello before the signature check has finished, as the phone sends it.
+  const snap = JSON.stringify({ type: "state", t: { state: "Watching" } });
+  const first = m.webSocketMessage(ws, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: await p.sign(`mirror.ABCDEFGH.${time}`) } }));
+  const second = m.webSocketMessage(ws, snap);
+  await Promise.all([first, second]);
+  assert.equal(ws.closed, undefined, "the early snapshot must not be read as a bad hello");
   assert.equal(ws.att.auth, true);
+  assert.deepEqual(viewer.sent.at(-1), JSON.parse(snap), "the queued snapshot reaches the viewer after the hello passes");
+  assert.equal(m.last, snap);
   const bad = { ...ws, open: true, att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, sent: [] };
   ctx.acceptWebSocket(bad, ["send"]);
   await m.webSocketMessage(bad, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: "AAAA" } }));

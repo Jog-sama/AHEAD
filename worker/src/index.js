@@ -360,6 +360,13 @@ export class Mirror {
     if (typeof message !== "string" || !this.ctx.getTags(ws).includes("send")) return;
     const state = ws.deserializeAttachment() || {};
     if (!state.auth) {
+      // The phone's first snapshot follows its hello at once, and a device hello is verified against KV, an await
+      // other events run through; what arrives meanwhile waits in a queue instead of being read as a failed hello.
+      this.queued ??= new Map();
+      if (this.queued.has(ws)) {
+        this.queued.get(ws).push(message);
+        return;
+      }
       let hello = null;
       try {
         hello = JSON.parse(message);
@@ -367,8 +374,11 @@ export class Mirror {
       let ok = hello?.type === "hello" && Date.now() - (state.since || 0) <= HELLO_MS;
       if (ok && hello.device) {
         const d = hello.device;
+        this.queued.set(ws, []);
         ok = Boolean(await signedBy(this.env, d.id, d.time, d.sig, `mirror.${state.code}.${d.time}`));
       } else if (ok) ok = sameToken(hello.token, this.env.OWNER_TOKEN);
+      const later = this.queued.get(ws) || [];
+      this.queued.delete(ws);
       if (!ok) {
         ws.close(4001, "unauthorized");
         return;
@@ -376,8 +386,13 @@ export class Mirror {
       ws.serializeAttachment({ auth: true });
       ws.send(JSON.stringify({ type: "watchers", n: this.ctx.getWebSockets("watch").length }));
       this.broadcast("watch", JSON.stringify({ type: "phone", on: true }));
+      for (const m of later) this.relay(m);
       return;
     }
+    this.relay(message);
+  }
+
+  relay(message) {
     if (message.length > 65536) return;
     if (message.startsWith('{"type":"state"')) this.last = message;
     this.broadcast("watch", message);
@@ -392,6 +407,7 @@ export class Mirror {
   }
 
   gone(ws) {
+    this.queued?.delete(ws);
     const tags = this.ctx.getTags(ws);
     try {
       ws.close(1000);

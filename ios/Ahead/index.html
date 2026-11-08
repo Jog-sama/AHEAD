@@ -236,7 +236,7 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <script>
 const $=id=>document.getElementById(id), has=!!window.native;
 const store={get(k){try{return localStorage.getItem(k)||''}catch{return ''}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
-const NEAR=1.0, FAR=2.5, PATH=0.6, COLS=9, HALF=30, HZ=12;   // metres; the path is ±PATH to the side of straight ahead
+const NEAR=1.0, FAR=2.5, CANE_NEAR=0.5, PATH=0.6, COLS=9, HALF=30, HZ=12;   // metres; the path is ±PATH to the side of straight ahead
 // Closer than CLOSE for COVER_MS is not something the walker is about to hit, it is on the phone: a strap, a coat, a
 // hand. Those cells stop counting and the alert says so, once, rather than fast pulses that never end.
 const CLOSE=0.3, COVER_MS=3000;
@@ -325,7 +325,7 @@ function fuse(){
 const rank={far:0,slow:1,fast:2};
 const STATE_TEXT={far:`Nothing within ${FAR} m`,slow:`Something within ${FAR} m`,fast:`Something within ${NEAR} m`};
 function settle(next){
-  if(next===state){pending=0;return}
+  if(next===state){pending=0;if(state==='fast')motor(state);return}   // the cane's 2 starts under CANE_NEAR, inside fast
   if(rank[next]>rank[state]||++pending>=4){
     if(rank[next]>rank[state])alerts++;
     state=next;pending=0;
@@ -536,14 +536,15 @@ function caneDisconnect(){
   if(on)settle(fuse());
 }
 
-// The cane's motor follows the fused state: 0 silent, 1 slow, 2 fast; the cane plays only 2. The cane honours a write for 1.5 s and then
+// The cane's motor follows the fused state: 0 silent, 1 slow, 2 fast; the cane plays only 2, and is sent 2 only under
+// CANE_NEAR, half the phone's NEAR, as the cane's own sensor: within 1 m the grip beeped at everything on the bench. The cane honours a write for 1.5 s and then
 // falls back to its own sensor, so a non-zero state is written again every 500 ms for as long as it lasts; a dropped
 // link therefore ends the phone's cue within 1.5 s instead of leaving the cane buzzing.
 let motorTimer=null;
 function motor(s){
   clearTimeout(motorTimer);motorTimer=null;
   if(!cane.connected)return;
-  const v=rank[s]??0;
+  const v=Math.min(rank[s]??0,nearest&&nearest.d<CANE_NEAR?2:1);
   if(v!==cane.motorSent){
     cane.motorSent=v;
     call('ble.write',{id:cane.id,service:CANE.service,characteristic:CANE.motor,base64:btoa(String.fromCharCode(v))}).catch(()=>{cane.motorSent=null});

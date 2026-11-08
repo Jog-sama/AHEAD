@@ -1,6 +1,6 @@
 # TactileVector
 
-A one-servo thumb cue for a white cane user, demonstrated seated and supervised. It runs two ways: in the Ahead iPhone app, which decides from the phone's LiDAR and drives the servo over Bluetooth, or as below, where an iPhone in Safari streams camera frames to a Mac. FastAPI picks a left, center or right cue and sends it over Wi-Fi to an ESP32-C3, whose servo nudges a soft lever under the thumb. Three modes: manual buttons, a green-marker tracker for bench tests, and obstacle mode (YOLO11n plus Depth Anything V2), which only cues toward a side with visible floor and stays neutral when unsure.
+A one-servo thumb cue for a white cane user, demonstrated seated and supervised. It runs two ways: in the Ahead iPhone app, which decides from the phone's LiDAR and drives the servo over Bluetooth, or as below, where an iPhone in Safari streams camera frames to a Mac. FastAPI picks a left, center or right cue and sends it over Wi-Fi to an ESP32, whose servo nudges a soft lever under the thumb. Three modes: manual buttons, a green-marker tracker for bench tests, and obstacle mode (YOLO11n plus Depth Anything V2), which only cues toward a side with visible floor and stays neutral when unsure.
 
 ## How it works
 
@@ -18,7 +18,7 @@ flowchart LR
   ask <-->|HTTPS| cloud["Cloudflare Worker and Claude: one spoken sentence"]
 ```
 
-Heights are above the ground; every other distance below is how far ahead. Pulses come slow when something is within 2.5 m ahead and fast within 1 m. The lever points toward the side that is measured open and stays centred for straight ahead or unsure. The Mac path (Safari camera frames to FastAPI, Wi-Fi to the lever) is drawn in [docs/DESIGN.md](docs/DESIGN.md).
+Heights are above the ground; every other distance below is how far ahead. The phone pulses slow when something is within 2.5 m ahead and fast within 1 m; the cane's grip buzzes only within 0.5 m, from the phone's reading or its own sensor. The lever points toward the side that is measured open and stays centred for straight ahead or unsure. The Mac path (Safari camera frames to FastAPI, Wi-Fi to the lever) is drawn in [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Questions judges ask
 
@@ -26,7 +26,7 @@ Heights are above the ground; every other distance below is how far ahead. Pulse
 
 **Why touch and not voice?** For cane users, audio feedback on nearby obstacles carried about 22 times the workload of haptics on the cane ([Martinez et al. 2014](https://cvhci.iar.kit.edu/publications_986.php)), and the walker's ears are needed for traffic. Sound is a setting, off by default.
 
-**How is it different from existing devices?** In a 2026 study with 13 blind or visually impaired adults, an ultrasonic clip (BuzzClip) doubled workload, 3.2 to 6.2 on NASA-TLX, partly because it gave no height information; a camera vest (NOA) cut body contacts from 2.9 to 1.6, but 8 of 13 found it too heavy or bulky at 1.3 kg ([Scientific Reports](https://pmc.ncbi.nlm.nih.gov/articles/PMC12909938/)). Ahead measures by height band, so it ignores the ground the cane already covers, and its sensor and computer are an iPhone with LiDAR (Pro models since the iPhone 12 Pro) plus two small Bluetooth boards.
+**How is it different from existing devices?** In a 2026 study with 13 blind or visually impaired adults, an ultrasonic clip (BuzzClip) doubled workload, 3.2 to 6.2 on NASA-TLX, partly because it gave no height information; a camera vest (NOA) cut body contacts from 2.9 to 1.6, but 8 of 13 found it too heavy or bulky at 1.3 kg ([Scientific Reports](https://pmc.ncbi.nlm.nih.gov/articles/PMC12909938/)). Ahead measures by height band, so it ignores the ground the cane already covers, and its sensor and computer are an iPhone with LiDAR (Pro models since the iPhone 12 Pro) plus one small Bluetooth board on the cane, which can carry the lever's servo too.
 
 **Where is the AI?** The cues while walking are fixed rules on the LiDAR depth, not a model, so the same scene always gives the same cue, and tests check it. Claude is used only on request: the cane button sends a photo and the depth readings, and the answer is one spoken sentence. The Worker refuses crossing questions and strips distances from the answer, in code as well as in the prompt, and `npm test` checks both ([worker/](worker/README.md)).
 
@@ -34,7 +34,7 @@ Heights are above the ground; every other distance below is how far ahead. Pulse
 
 **Has a blind person tested it?** No. The walk protocol is [eval/walk-protocol.md](eval/walk-protocol.md). Tests with blindfolded sighted people count as engineering data only, since they prefer different feedback than cane users do (Martinez et al. 2014).
 
-**What have you measured?** Ask took 2.1 s round trip from a laptop; it has not been timed from the phone outdoors. On the Mac, obstacle-mode inference took about 60 ms per image after the first ([evidence/VERIFICATION.md](evidence/VERIFICATION.md)). 131 automated tests pass, including the phone's thumb cue checked against the Mac's Python on the same depth scenes. Phone-to-lever latency is not measured yet.
+**What have you measured?** Ask took 2.1 s round trip from a laptop; it has not been timed from the phone outdoors. On the Mac, obstacle-mode inference took about 60 ms per image after the first ([evidence/VERIFICATION.md](evidence/VERIFICATION.md)). 133 automated tests pass, including the phone's thumb cue checked against the Mac's Python on the same depth scenes. Phone-to-lever latency is not measured yet.
 
 **What does it not cover?** Steps and drop-offs are left to the cane. Direct sun and glass are untested.
 
@@ -45,8 +45,9 @@ Heights are above the ground; every other distance below is how far ahead. Pulse
 The Ahead app runs the LiDAR cue on the iPhone and drives the lever over Bluetooth; no Mac, tunnel or Python setup is involved:
 
 1. Install Ahead from TestFlight (link in the table below), on an iPhone with LiDAR. The thumb lever is in builds after 0.1 (2).
-2. Flash the lever's board with [firmware/thumb](firmware/thumb/README.md).
-3. In the app: Settings › Thumb lever › Connect, calibrate the two angles, Done, Start.
+2. Flash the board: `devkit-vl53l0x-thumb` in [firmware/cane](firmware/cane/README.md) puts the cane and the lever on one ESP32 DevKit V1 (servo on GPIO 26); [firmware/thumb](firmware/thumb/README.md) is the lever alone.
+3. Open the app. It finds the cane by itself: one cane in range connects, several give a list, nearest first. Each board is named by a short code from its Bluetooth address (`Cane C9D2`), shown in the pill at the top. A board the app has used reconnects at launch and after a dropped link; turning it off in Settings keeps it off.
+4. Settings › Thumb lever: calibrate the two angles (78 and 102 by default, about 12° each way), Done, Start. A lever on its own `Thumb` board is connected here the first time.
 
 A walk starts and stops without the screen: the Action Button, Siri ("Start Ahead"), VoiceOver's two-finger double tap, or Back Tap, after adding Ahead's Start or Stop Walk to a shortcut and picking it in Settings › Accessibility › Touch › Back Tap. The phone says which.
 
@@ -84,7 +85,7 @@ This is a controlled cue demonstrator, not a navigation aid or a safety system.
 
 ## Ahead, a parallel design
 
-Ahead covers chest and head height, where a cane does not reach: iPhone LiDAR in a chest mount felt as pulses (silent beyond 2.5 m, slow within 2.5 m, fast within 1 m), an upward distance sensor on the cane over Bluetooth, and a photo described aloud on request.
+Ahead covers chest and head height, where a cane does not reach: iPhone LiDAR in a chest mount felt as pulses (silent beyond 2.5 m, slow within 2.5 m, fast within 1 m), an upward distance sensor on the cane over Bluetooth that buzzes the grip within 0.5 m, and a photo described aloud on request.
 
 | Part | Where |
 | --- | --- |
@@ -92,4 +93,5 @@ Ahead covers chest and head height, where a cane does not reach: iPhone LiDAR in
 | `eval/` | walking protocol, sensor bench log, NASA-TLX, and `analyze.py` for the CSV the app exports |
 | `worker/` | the Cloudflare Worker behind Ask: photo plus LiDAR readings in, one spoken sentence out; `npm test` checks the two rules offline; `npx wrangler deploy` |
 | `ios/Ahead/` | the iPhone app's page, its whole interface; TestFlight https://testflight.apple.com/join/RuyPSTNZ. The native shell is the `Ahead` target of jonasneves/phone-bridge (private, ask for access) |
-| `firmware/cane/` | the cane's ESP32 firmware: a BLE peripheral with an upward distance sensor, a button and a coin motor; pins, GATT and fail-safes in its README |
+| `firmware/cane/` | the cane's ESP32 firmware: a BLE peripheral with an upward distance sensor, a button and a coin motor, and optionally the thumb lever's servo; pins, GATT and fail-safes in its README |
+| `firmware/thumb/` | the thumb lever alone as a BLE peripheral, and `Thumb.h`, the servo service the cane firmware also carries |

@@ -56,7 +56,7 @@ const char kMotorUuid[] = "c0de0004-ca9e-4a11-8e8d-000000000001";
 const char kStatusUuid[] = "c0de0005-ca9e-4a11-8e8d-000000000001";
 
 constexpr uint16_t kNoReading = 0xFFFF;
-constexpr uint16_t kFastUnderMm = 1000;
+constexpr uint16_t kFastUnderMm = 500;  // the phone pulses fast from 1.0 m; the grip only at half that
 constexpr uint16_t kSettleBandMm = 100;
 constexpr int kDeescalateFrames = 4;
 constexpr unsigned long kFrameMs = 100;
@@ -378,7 +378,7 @@ void loop() {
   uint8_t own = settled ? 0 : local_state;
   // A faulty sensor must not drive the motor, but the phone still may: its cue is independent of this sensor.
   uint8_t next = fault ? phone : max(own, phone);
-  // The grip buzzes only under 1 m: steady pulses there mask the ground texture the cane carries, and the chest
+  // The grip buzzes only under 0.5 m: steady pulses there mask the ground texture the cane carries, and the chest
   // already pulses from 2.5 m. A phone's 1 (slow) is held and echoed but plays nothing. Silent until a phone has
   // connected once, so a board on the bench or just powered on is quiet; a drop mid-walk keeps the cane warning.
   if (next < 2 || !paired) next = 0;

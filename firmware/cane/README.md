@@ -3,7 +3,7 @@
 Can the cane itself warn of what is at chest and head height, the one gap a cane leaves (Manduchi & Kurniawan 2011:
 head-level collisions are the common accident of blind pedestrians, most of them outdoors, tree branches first)? An
 ESP32-C3 on the cane's grip: one distance sensor angled up along the cane's axis, one button, one coin vibration motor
-under the index finger. It is a BLE peripheral named `Cane`; the Ahead app's page fuses its distance with the phone's
+under the index finger. It is a BLE peripheral named `Cane` and the last two bytes of its address (`Cane C9D2`); the Ahead app's page fuses its distance with the phone's
 LiDAR corridor and writes an urgency back. The cane plays the higher of the phone's urgency and its own, fast pulses
 only, and the phone's expires 1.5 s after it was written, so a dropped link neither silences the cane nor leaves it buzzing. Nothing
 on the cane talks Wi-Fi.
@@ -55,9 +55,9 @@ Shared with the Ahead app's page (`ios/Ahead/index.html`); a change here is a ch
 | motor | N = 4, write without response | uint8: 0 silent, 1 slow (held and echoed, plays nothing on the cane), 2 fast; honoured for 1.5 s from the write |
 | status | N = 5, notify, every 5 s and on change (battery moves in steps of 2) | battery percent (0xFF unknown), flags: bit0 sensor fault, bit1 the pulses playing are the phone's, bit2 the cane's own cue is settled; then the phone's motor value as the cane holds it (0 once 1.5 s pass without a write), which is how the page knows its writes arrive |
 
-Motor code: fast pulses only, 100 ms on every 200 ms, under 1.0 m; a state change starts with a pulse. Slow pulses
+Motor code: fast pulses only, 100 ms on every 200 ms, under 0.5 m, half the phone's 1.0 m; a state change starts with a pulse. Slow pulses
 from 2.5 m stay on the phone, worn at the chest: steady buzzing in the grip masks the ground texture the cane carries
-up its shaft, and an active buzzer standing in for the motor on the bench beeped at everything in the room. The cane's own state is fast under 1.0 m, up at once
+up its shaft, and an active buzzer standing in for the motor on the bench beeped at everything in the room. The cane's own state is fast under 0.5 m, up at once
 and down after 4 frames (400 ms). Played = max(own, phone's if under 1.5 s old), and only fast plays; a phone write
 of 0 never silences the cane's own warning. The motor stays off until a phone has connected once since power-on, so
 the board is quiet on the bench; that first connection plays one 300 ms buzz, so a walker can tell a cane that is
@@ -78,20 +78,20 @@ disconnect. Until the sensor's first frame the status says fault and the motor s
 
 ## Testing with nRF Connect
 
-nRF Connect for Mobile (Nordic, iOS or Android), Scanner tab: `Cane`, advertising the service UUID. Connect, open the
+nRF Connect for Mobile (Nordic, iOS or Android), Scanner tab: `Cane` and its code, advertising the service UUID. Connect, open the
 service: each characteristic carries its name as a user description.
 
 1. Distance: tap the down arrows on `distance` to subscribe; the value changes 10 times a second. Point the sensor at
    a wall at a measured distance; the two bytes are little-endian, so `0x38 0x07` is 0x0738 = 1848 mm. `FF FF` is
    nothing in reach.
 2. Button: subscribe to `button`; a tap gives `01` on release, a hold gives `02` at 0.6 s and nothing on release.
-3. Motor: before connecting, a hand under 1 m of the sensor plays nothing; connecting plays one 300 ms buzz. Then,
+3. Motor: before connecting, a hand under 0.5 m of the sensor plays nothing; connecting plays one 300 ms buzz. Then,
    on `motor`, write `01` (write without response, UInt8): no pulses, and the status echoes `01`; `02`: fast pulses
-   for 1.5 s. Write `00` with a hand under 1 m of the sensor: it keeps pulsing fast, since the cane's own state wins.
+   for 1.5 s. Write `00` with a hand under 0.5 m of the sensor: it keeps pulsing fast, since the cane's own state wins.
 4. Status: subscribe to `status`; `FF 00` every 5 s with no battery divider and the sensor answering; `FF 01` with
    the sensor unplugged, and the motor stops within a second even while a `02` is live; `FF 02` while a written state plays.
 5. Link drop: with `02` playing, disconnect: the pulses stop within 1.5 s; the Scanner shows `Cane` again at once.
-6. Settle: a hand held still under 1 m for 5 s: the pulses stop and the monitor says `settled`; move it 10 cm: pulses
+6. Settle: a hand held still under 0.5 m for 5 s: the pulses stop and the monitor says `settled`; move it 10 cm: pulses
    at once.
 7. Watchdog and brown-out: pull the cell with the motor pulsing; it stays off on the reset, and the monitor's first
    line says `after a brown-out` when that was the reset's cause.
@@ -107,6 +107,6 @@ measured here.
 
 ## Results
 
-Not run yet: written 11-07, before the parts arrived; both builds compile. Open: which JSN-SR04T revision arrives and
+Written 11-07, before the parts arrived; every build compiles. Run on the ESP32 DevKit V1 with the VL53L0X and the servo (`devkit-vl53l0x-thumb`, 11-08): the app connects, reconnects by itself, and drives the lever over the same link; the button on GPIO 4 and the 0.5 m buzz are not yet checked by hand. Open: which JSN-SR04T revision arrives and
 whether it runs from 3.3 V; what the ultrasonic reads off glass at 15° and 30°; false pulses per 100 m walked with
 the cane swinging; the ERM's inrush on the cell and whether a brown-out ever shows in the monitor.

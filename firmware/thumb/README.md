@@ -1,11 +1,11 @@
 # Thumb
 
 TactileVector's one SG90 under the thumb, driven by the Ahead app over Bluetooth instead of by the Mac over Wi-Fi. The
-board is a BLE peripheral named `Thumb`; the app's page (`ios/Ahead/index.html`, Settings › Thumb lever) decides left,
+board is a BLE peripheral named `Thumb` and the last two bytes of its address (`Thumb 3F2A`); the app's page (`ios/Ahead/index.html`, Settings › Thumb lever) decides left,
 right or neutral from the phone's LiDAR corridor and writes the angle. No Wi-Fi, no token, no IP address, no Mac.
 The Wi-Fi sketch in `firmware/TactileVector/` stays for the Mac path; both share its `Safety.h`.
 The servo and its service are `src/Thumb.h`, which the cane firmware also carries (`devkit-vl53l0x-thumb` in
-`firmware/cane`), so one board can be both: it advertises as `Cane`, with this service in the scan response, and the page
+`firmware/cane`), so one board can be both: it advertises as `Cane` and its code, with this service in the scan response, and the page
 attaches the lever to the cane's link, dropping the link only once neither uses it.
 
 ## Configure, build, flash
@@ -40,4 +40,4 @@ can connect and write an angle, as with the cane; the bounds and the timeout are
 
 ## Results
 
-Compiled for the C3 and the DevKit, with and without a pin configured (2026-11-08). Not yet flashed or run on a board.
+Compiled for the C3 and the DevKit, with and without a pin configured (2026-11-08). Run on an ESP32 DevKit V1, servo signal on GPIO 26 and power from VIN on laptop USB, both alone and inside `devkit-vl53l0x-thumb` (2026-11-08): the servo followed 80, 90 and 100 written from the app, and the status echoed each. Not measured: degrees of horn travel per step, deflection under a resting thumb, and whether a walker feels ±12°.

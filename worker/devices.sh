@@ -14,9 +14,9 @@ for kind in ("pending","approved"):
     print(kind + ":" if d[kind] else kind + ": none")
     for x in d[kind]:
         since=datetime.datetime.fromtimestamp((x.get("since") or 0)/1000).strftime("%m-%d %H:%M")
-        extra=f"  today={x[\"today\"]}" if x.get("today") is not None else ""
-        name="".join(c for c in str(x.get("name")) if c.isprintable())
-        print(f"  {x[\"id\"]}  {x.get(\"fp\")}  {name}  since {since}{extra}")' ;;
+        extra = "  today=%s" % x["today"] if x.get("today") is not None else ""
+        name = "".join(c for c in str(x.get("name")) if c.isprintable())
+        print("  %s  %s  %s  since %s%s" % (x["id"], x.get("fp"), name, since, extra))' ;;
   approve) [ -n "$2" ] || { echo "usage: $0 approve <id>"; exit 1; }; curl -s -X POST "$url/devices/$2" -H "Authorization: Bearer $token"; echo ;;
   revoke) [ -n "$2" ] || { echo "usage: $0 revoke <id>"; exit 1; }; curl -s -X DELETE "$url/devices/$2" -H "Authorization: Bearer $token"; echo ;;
   *) echo "usage: $0 [list | approve <id> | revoke <id>]"; exit 1 ;;

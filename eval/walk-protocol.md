@@ -31,7 +31,7 @@ Each condition at least twice; walking speed from the page's pedometer distance 
 Start at 100 percent, Ahead running at 12 Hz, phone in the chest mount, screen on (keepAwake), walk or stand outdoors for 60 minutes. The page logs battery and thermal every minute. Report percent per hour and the minute the thermal state first left nominal. Repeat once indoors.
 
 ## Bench ranging (before the walks)
-Use `bench-log.csv` (the esp32-labs `cane/` folder has the same header). For each sensor (phone LiDAR corridor, cane ultrasonic, VL53L0X if used), each condition (sun, shade, rain, dusk) and each surface (white wall, dark cloth, glass at 0°, 15°, 30°, foliage, a 5 cm pole, a signpost arm), place the target at 1, 2, 3 m measured with a tape, record the reading. Three readings per cell. Note the maximum range at which the reading is within 20 percent of truth.
+Use `bench-log.csv`, for the cane's sensors too. For each sensor (phone LiDAR corridor, cane ultrasonic, VL53L0X if used), each condition (sun, shade, rain, dusk) and each surface (white wall, dark cloth, glass at 0°, 15°, 30°, foliage, a 5 cm pole, a signpost arm), place the target at 1, 2, 3 m measured with a tape, record the reading. Three readings per cell. Note the maximum range at which the reading is within 20 percent of truth.
 
 ## Rules during a walk
 - The guide stops the tester before any real contact with the face.

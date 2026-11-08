@@ -42,4 +42,4 @@ Ahead covers chest and head height, where a cane does not reach: iPhone LiDAR in
 | `eval/` | walking protocol, sensor bench log, NASA-TLX, and `analyze.py` for the CSV the app exports |
 | `worker/` | the Cloudflare Worker behind Ask: photo plus LiDAR readings in, one spoken sentence out; `npm test` checks the two rules offline; `npx wrangler deploy` |
 | iPhone app | TestFlight https://testflight.apple.com/join/RuyPSTNZ; source in jonasneves/phone-bridge (private, ask for access) |
-| Cane firmware | jonasneves/esp32-labs `cane/` (private, ask for access): ESP32-C3 SuperMini, JSN-SR04T, coin motor, one button |
+| `firmware/cane/` | the cane's ESP32 firmware: a BLE peripheral with an upward distance sensor, a button and a coin motor; pins, GATT and fail-safes in its README |

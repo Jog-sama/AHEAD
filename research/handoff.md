@@ -13,11 +13,11 @@ cane-brief.md in this folder. Council outputs land in council-out/ (one .md per 
   head-level collisions are outdoors, tree branches the majority, then poles, signs, construction, trucks; indoors,
   doors and cabinets left ajar. 23% of head-level collisions had medical consequences; 43% changed how they walk
   afterwards, 26% lost confidence. Mobility aid (cane vs dog) makes no significant difference to the rates.
-- Scientific Reports 2026, NOA vest vs BuzzClip vs cane alone, 13 blind adults, indoor
+- Scientific Reports 2026, NOA vest vs BuzzClip vs cane alone, 13 blind or visually impaired adults, indoor
   (https://pmc.ncbi.nlm.nih.gov/articles/PMC12909938/): both devices slowed walking (0.68 → 0.60 and 0.57 m/s).
   BuzzClip (ultrasonic clip, vibration) raised NASA-TLX workload 3.18 → 6.22 and frustration 2.77 → 7.54; complaints:
   vibrations too weak to tell from the cane tip (4/13), too frequent (5/13), no height or field-of-view info (5/13).
-  NOA (camera vest, spatial audio) cut body contacts 2.92 → 1.62 and 12/13 would adopt it, but 8/13 called it heavy
+  NOA (camera vest, spatial audio) cut body contacts 2.92 → 1.62 and 12/13 would adopt it, but 8/13 called it heavy or bulky
   (1.3 kg). Authors: precision of feedback matters more than modality; weight kills adoption; test outdoors.
 - Martinez et al. ICCHP 2014 (https://cvhci.iar.kit.edu/publications_986.php): for white-cane users, audio feedback
   for short-range obstacles carried about 22× the NASA-TLX workload of cane-mounted haptics; blindfolded sighted
@@ -95,7 +95,7 @@ masking (the Dos Santos paper is a cane comparison, not a masking study); SmartC
 - Blind users want destination help over obstacle avoidance, 4.1 vs 2.4 of 5 (arXiv 2504.19345).
 - Haptic beats audio for cane users: ~22× lower NASA-TLX workload (ICCHP 2014).
 - Existing aids slow walking and raise workload: BuzzClip workload 3.2→6.2, frustration 2.8→7.5; NOA cut body contacts
-  2.9→1.6 but 8/13 called it too heavy (Scientific Reports 2026).
+  2.9→1.6 but 8/13 called it too heavy or bulky (Scientific Reports 2026).
 
 ### Build order (consolidated)
 Week 1: native depth corridor in Depth.swift + Core Haptics on a chest-mounted phone, walking-gated by CoreMotion;

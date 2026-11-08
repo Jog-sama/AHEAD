@@ -21,3 +21,4 @@ dist/
 .venv*/
 .pio/
 xcuserdata/
+firmware/thumb/src/config.h

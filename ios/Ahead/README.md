@@ -1,6 +1,6 @@
 # Ahead, the iPhone app's page
 
-`index.html` is the whole interface of the Ahead app: the walk screen, the cane over Bluetooth, push-to-ask, the
+`index.html` is the whole interface of the Ahead app: the walk screen, the cane and the thumb lever over Bluetooth, push-to-ask, the
 settings and the computer mirror. The native shell that runs it, a web view with a bridge to the phone's LiDAR,
 haptics, Bluetooth, speech and camera, is the `Ahead` target of jonasneves/phone-bridge (private; ask Jonas for
 access), which copies this file into the app bundle at build time from a checkout of this repo beside it:

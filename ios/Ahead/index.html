@@ -126,10 +126,10 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 
 <section class=walk aria-label="The path ahead">
   <div class=state id=state-box title="Tap to hear the distance">
-    <p id=state aria-live=polite>Off</p>
+    <p id=state>Off</p><!-- not a live region: pulses carry the state while walking, and VoiceOver would narrate every change -->
     <p id=alert role=alert></p>
   </div>
-  <div class=cor-wrap>
+  <div class=cor-wrap aria-hidden=true><!-- 18 cells read one by one; the state line and Distance say the same -->
     <table class=cor aria-label="Distance in metres per cell, head band then chest band, 30 degrees left to 30 degrees right; dimmed cells are outside the path">
       <colgroup><col class=lab><col span=9></colgroup>
       <thead><tr><th></th><th colspan=3 class=l scope=colgroup>Left</th><th colspan=3 scope=colgroup>Ahead</th><th colspan=3 class=r scope=colgroup>Right</th></tr></thead>
@@ -301,7 +301,7 @@ function fuse(){
 
 // Closer engages at once; farther only after four readings agree, so a flickering edge does not stutter the pulse.
 const rank={far:0,slow:1,fast:2};
-const STATE_TEXT={far:'Clear ahead',slow:`Something within ${FAR} m`,fast:`Something within ${NEAR} m`};
+const STATE_TEXT={far:`Nothing within ${FAR} m`,slow:`Something within ${FAR} m`,fast:`Something within ${NEAR} m`};
 function settle(next){
   if(next===state){pending=0;return}
   if(rank[next]>rank[state]||++pending>=4){

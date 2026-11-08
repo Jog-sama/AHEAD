@@ -2,7 +2,7 @@
 
 ## Configuration
 
-The firmware uses Arduino-ESP32 **3.2.0**'s LEDC API (`ledcAttach`, `ledcWrite`) at **50Hz, 14-bit** PWM. It does not depend on AVR Servo or an unverified third-party servo library. Nominal logical angles 75..105 map to approximately 1417..1583µs; neutral is 1500µs. These are control values, not calibrated measured shaft degrees.
+The firmware uses Arduino-ESP32 **3.2.0**'s LEDC API (`ledcAttach`, `ledcWrite`) at **50Hz, 14-bit** PWM. It does not depend on AVR Servo or an unverified third-party servo library. Logical angles 0..180 map to 500..2500µs, close to one horn degree each on an SG90 clone; the bounds 60..120 give 1167..1833µs, and neutral is 1500µs. These are control values until a protractor on this servo confirms the scale.
 
 ```bash
 cp firmware/TactileVector/config.example.h firmware/TactileVector/config.h
@@ -38,7 +38,7 @@ After reboot Serial prints either `SAFE DISABLED` (no PWM) or `PWM ready; neutra
 ## Endpoint contract
 
 - `GET /health`: no actuation, JSON status.
-- `GET /steer?angle=90` with `X-Device-Token`: exactly one integer, inclusive 75..105. Decimal/sign/garbage/extra/duplicate arguments are rejected. The proposed Gemini `buzz=1` parameter is deliberately not implemented.
+- `GET /steer?angle=90` with `X-Device-Token`: exactly one integer, inclusive 60..120. Decimal/sign/garbage/extra/duplicate arguments are rejected. The proposed Gemini `buzz=1` parameter is deliberately not implemented.
 - Command token does not go in the URL. No credentials are printed on Serial.
 - Only valid, accepted commands refresh the firmware timeout. Polling health or sending bad requests cannot keep an old direction alive.
 - On timeout (800ms from last accepted command) or Wi-Fi loss, an independent FreeRTOS task requests neutral. It checks about every 10ms; scheduling and physical motion time are not guaranteed or measured here. Network reconnect does not restore the previous angle.
@@ -47,10 +47,10 @@ After reboot Serial prints either `SAFE DISABLED` (no PWM) or `PWM ready; neutra
 ## Calibration
 
 1. Keep servo horn off; use verified 5V, common GND, correctly routed signal. Power board then servo with no thumb contact.
-2. Set backend real device mode and `TV_LEFT=88`, `TV_RIGHT=92`. Arm, hold NEUTRAL briefly; release. Watch for reboot, buzz or excessive heat.
+2. Set backend real device mode and `TV_LEFT=84`, `TV_RIGHT=96`. Arm, hold NEUTRAL briefly; release. Watch for reboot, buzz or excessive heat.
 3. Power off servo, install horn centered for intended travel, secure its retaining screw and soft lever. Ensure no collision through the small sweep.
 4. Arm and briefly hold left/right without touching. If orientation is backwards, swap left/right values in `.env` and restart Python.
-5. Expand to 85/95, then 80/100 only if needed. Keep hardware hard bounds intact. Changing nominal bounds requires re-reviewing Python ACK validation and tests as well as firmware.
+5. Expand to 78/102, the default (about ±12° on an SG90 clone, 3–4 mm at a 15–20 mm paddle), and wider only if a walker cannot feel it. Keep hardware hard bounds intact. Changing nominal bounds requires re-reviewing Python ACK validation and tests as well as firmware.
 6. Once verified, allow very light resting-thumb contact while seated and supervised. Never use the thumb as a hard stop. A soft deflecting paddle is preferable to a rigid force lever.
 7. Test loss of browser, backend and Wi-Fi with an unloaded horn. Confirm neutral while servo power remains available. Disconnection of power makes motion/position uncontrolled; firmware cannot fix it.
 

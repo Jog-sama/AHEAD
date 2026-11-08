@@ -11,9 +11,9 @@ class Settings:
     device: str = "mock"
     esp32_url: str = "http://192.168.1.123"
     device_token: str = ""
-    left: int = 80
+    left: int = 78
     center: int = 90
-    right: int = 100
+    right: int = 102
     input_timeout: float = 0.7
     request_timeout: float = 0.35
 
@@ -22,8 +22,8 @@ class Settings:
             raise ValueError("TV_DEVICE must be mock or esp32")
         if len(self.api_key) < 24:
             raise ValueError("Set TV_API_KEY (24+ characters); run python scripts/configure.py")
-        if self.center != 90 or any(not 75 <= x <= 105 for x in (self.left, self.right)):
-            raise ValueError("Center must be 90; left/right must be within 75..105")
+        if self.center != 90 or any(not 60 <= x <= 120 for x in (self.left, self.right)):
+            raise ValueError("Center must be 90; left/right must be within 60..120")
         if not (self.left < self.center < self.right or self.right < self.center < self.left):
             raise ValueError("Left and right must lie on opposite sides of neutral")
         if self.device == "esp32":
@@ -43,7 +43,7 @@ class Settings:
             device=os.getenv("TV_DEVICE", "mock"),
             esp32_url=os.getenv("TV_ESP32_URL", "http://192.168.1.123"),
             device_token=os.getenv("TV_DEVICE_TOKEN", ""),
-            left=int(os.getenv("TV_LEFT", "80")),
+            left=int(os.getenv("TV_LEFT", "78")),
             center=int(os.getenv("TV_CENTER", "90")),
-            right=int(os.getenv("TV_RIGHT", "100")),
+            right=int(os.getenv("TV_RIGHT", "102")),
         )

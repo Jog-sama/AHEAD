@@ -39,8 +39,8 @@ async def test_bad_ack(change):
         ok=True,
         angle=90,
         neutral=90,
-        min_angle=75,
-        max_angle=105,
+        min_angle=60,
+        max_angle=120,
         timeout_ms=800,
         configured=True,
         wifi=True,
@@ -81,7 +81,7 @@ async def test_sim_timeout_invalid():
         transport=httpx.ASGITransport(app=sim), base_url="http://esp"
     ) as c:
         assert (await c.get("/steer?angle=100")).status_code == 401
-        for x in ["-1", "180", "90.5", "nan", "90&angle=100", "90&buzz=1"]:
+        for x in ["-1", "59", "121", "180", "90.5", "nan", "90&angle=100", "90&buzz=1"]:
             assert (
                 await c.get(f"/steer?angle={x}", headers={"X-Device-Token": DEVICE_KEY})
             ).status_code == 400

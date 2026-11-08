@@ -73,7 +73,7 @@ void watchdogTask(void*) {
   }
 }
 
-// One byte, the angle in degrees; anything outside 75..105 is dropped and the timeout keeps running.
+// One byte, the angle in degrees; anything outside 60..120 is dropped and the timeout keeps running.
 struct AngleWrite : NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* chr, NimBLEConnInfo&) override {
     NimBLEAttValue v = chr->getValue();

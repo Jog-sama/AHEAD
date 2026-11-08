@@ -163,8 +163,8 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <section class="card phone-only" aria-label="Thumb lever">
   <div class=pad><p class=stat role=status id=thumb-stat>Thumb lever: not connected.</p></div>
   <div class=pad><button class=btn id=thumb-connect>Connect thumb lever</button></div>
-  <div class=row><label for=thumb-left>Left angle</label><input id=thumb-left type=number inputmode=numeric step=1 min=75 max=105 value=80></div>
-  <div class=row><label for=thumb-right>Right angle</label><input id=thumb-right type=number inputmode=numeric step=1 min=75 max=105 value=100></div>
+  <div class=row><label for=thumb-left>Left angle</label><input id=thumb-left type=number inputmode=numeric step=1 min=60 max=120 value=78></div>
+  <div class=row><label for=thumb-right>Right angle</label><input id=thumb-right type=number inputmode=numeric step=1 min=60 max=120 value=102></div>
   <div class="pad pair"><button class=btn id=thumb-test-l disabled>Hold for left</button><button class=btn id=thumb-test-r disabled>Hold for right</button></div>
 </section>
 <p class="foot phone-only">While the walk runs, the lever points to a side the LiDAR measures open beyond 1.65 m at chest height, and rests at neutral for ahead, for unsure and for anything within 0.55 m straight ahead. Open ground with nothing standing behind it counts as unsure, and nothing below 0.6 m is seen. Calibrate with the walk stopped: hold a test button, release for neutral.</p>
@@ -223,9 +223,19 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 </section>
 </div>
 </dialog>
+<dialog id=pick class=sheet aria-labelledby=pick-title>
+<div class=sheet-bar><h1 id=pick-title>Choose a cane</h1><button id=pick-cancel>Cancel</button></div>
+<div class=sheet-body>
+<p class=foot style="padding-top:16px">More than one cane is in range, nearest first. The code after Cane is the board's own; it prints in the board's serial log at start-up, so it can go on a label.</p>
+<section class=card aria-label=Canes>
+  <div class=pad id=pick-list></div>
+</section>
+</div>
+</dialog>
 </main>
 <script>
 const $=id=>document.getElementById(id), has=!!window.native;
+const store={get(k){try{return localStorage.getItem(k)||''}catch{return ''}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
 const NEAR=1.0, FAR=2.5, PATH=0.6, COLS=9, HALF=30, HZ=12;   // metres; the path is ±PATH to the side of straight ahead
 // Closer than CLOSE for COVER_MS is not something the walker is about to hit, it is on the phone: a strap, a coat, a
 // hand. Those cells stop counting and the alert says so, once, rather than fast pulses that never end.
@@ -403,9 +413,10 @@ function caneStatus(text){
   if(cane.connected&&cane.battery!=null&&cane.battery<15)parts.push(`battery low, ${cane.battery}%`);
   const line='Cane: '+parts.join('; ')+'.';
   if($('cane-stat').textContent!==line)$('cane-stat').textContent=line;   // a live region re-announces on every write
-  $('cane-l').textContent=cane.connected?'Cane':cane.scanning?'Looking for cane…':'Connect cane';
+  const name=cane.connected&&/^Cane\b/.test(bleNames[cane.id]||'')?bleNames[cane.id]:'Cane';
+  $('cane-l').textContent=cane.connected?name:cane.scanning?'Looking for cane…':'Connect cane';
   $('cane').classList.toggle('warn',cane.connected&&(cane.fault||cane.unconfirmed));
-  $('cane').setAttribute('aria-label',cane.connected?`Cane, ${parts.slice(1).join(', ')||'connected'}${caneD!=null?', '+caneD.toFixed(1)+' metres':''}. Double tap to disconnect.`:cane.scanning?'Looking for the cane. Double tap to stop.':'Connect cane');
+  $('cane').setAttribute('aria-label',cane.connected?`${name}, ${parts.slice(1).join(', ')||'connected'}${caneD!=null?', '+caneD.toFixed(1)+' metres':''}. Double tap to disconnect.`:cane.scanning?'Looking for the cane. Double tap to stop.':'Connect cane');
 }
 
 // One scan serves both boards: CoreBluetooth holds one service filter, so a scan for one would otherwise end the other's.
@@ -424,6 +435,39 @@ async function bleConnect(id){
   bleOffered[id]=(r&&r.services||[]).map(s=>String(s.uuid).toUpperCase());
   return r;
 }
+// Boards connect by themselves, as paired accessories do: each one this phone has used is remembered, and a connect to it
+// waits in iOS until the board is in range, so it comes back at launch and after a dropped link without a tap. Tapping
+// the cane or the lever off is remembered too, and that one stays off until tapped on.
+const bleKnown=new Set((()=>{try{return JSON.parse(store.get('ahead.ble.known')||'[]')}catch{return []}})());
+const bleOff={cane:!!store.get('ahead.cane.off'),thumb:!!store.get('ahead.thumb.off')};
+const bleWaiting=new Set();
+function bleRemember(id){if(!bleKnown.has(id)){bleKnown.add(id);store.set('ahead.ble.known',JSON.stringify([...bleKnown]))}}
+// Names as boards advertise them, "Cane 3F2A", kept so a board reconnected without a scan still shows its code.
+const bleNames=(()=>{try{return JSON.parse(store.get('ahead.ble.names')||'{}')}catch{return {}}})();
+function bleName(id,name){if(name&&bleNames[id]!==name){bleNames[id]=name;store.set('ahead.ble.names',JSON.stringify(bleNames))}}
+// Whether a board serves anything not turned off; a board not yet connected this launch might.
+function bleWants(id){
+  const s=bleOffered[id];
+  return !s||(s.includes(CANE.service)&&!bleOff.cane)||(s.includes(THUMB_BLE.service)&&!bleOff.thumb);
+}
+function bleSetOff(k,v){
+  bleOff[k]=v;store.set('ahead.'+k+'.off',v?'1':'');
+  if(v)bleWaiting.forEach(id=>{if(!bleWants(id))call('ble.disconnect',{id}).catch(()=>{})});
+}
+// Attaches what a connected board offers and is not turned off; a board left serving neither is dropped.
+function bleAttach(id,r){
+  let used=false;
+  if(offers(r,CANE.service)&&!bleOff.cane&&!cane.connected){cane.wanted=true;caneAttach(id);used=true}
+  if(offers(r,THUMB_BLE.service)&&!bleOff.thumb&&!thumb.connected){thumbAttach(id);used=true}
+  if(!used)bleDrop(id);
+}
+async function bleResume(id){
+  if(bleWaiting.has(id)||!bleWants(id)||(cane.connected&&cane.id===id)||(thumb.connected&&thumb.id===id))return;
+  bleWaiting.add(id);
+  let r;
+  try{r=await bleConnect(id)}catch{return}finally{bleWaiting.delete(id)}   // an older app build knows no remembered id
+  bleAttach(id,r);
+}
 
 async function caneScan(){
   if(!has||!cane.wanted||cane.connected||cane.scanning)return;
@@ -438,6 +482,29 @@ async function caneScan(){
     caneStatus('no cane found');caneRetry();
   },15000);
 }
+// A scan gathers canes for 1.5 s: one connects, more than one opens a list, nearest first, since connecting to whichever
+// answered first could pair a walker with someone else's cane.
+const caneFound=new Map();let pickTimer=null;
+function caneSeen(d){
+  caneFound.set(d.id,d);
+  if(!pickTimer)pickTimer=setTimeout(canePick,1500);
+}
+function canePick(){
+  pickTimer=null;
+  if(!cane.scanning)return caneFound.clear();
+  const list=[...caneFound.values()].sort((a,b)=>(b.rssi||-999)-(a.rssi||-999));caneFound.clear();
+  const known=list.find(d=>bleKnown.has(d.id));
+  if(list.length===1||known)return caneConnect((known||list[0]).id);   // this phone's own cane needs no choice
+  cane.scanning=false;clearTimeout(cane.scanTimer);bleScan(CANE.service,false).catch(()=>{});caneStatus('choose a cane');
+  $('pick-list').replaceChildren(...list.map((d,i)=>{
+    const b=document.createElement('button');b.className='btn';
+    b.textContent=(d.name||'Cane')+(i===0?', nearest':'');
+    b.onclick=()=>{$('pick').close();caneConnect(d.id)};
+    return b;
+  }));
+  $('pick').showModal();
+}
+$('pick-cancel').onclick=()=>{$('pick').close();cane.wanted=false;caneStatus('not connected')};
 // While the walk runs a missing cane is looked for again; stopped, the person taps Connect cane.
 function caneRetry(){clearTimeout(cane.retry);if(cane.wanted&&on&&!cane.connected)cane.retry=setTimeout(caneScan,5000)}
 
@@ -445,12 +512,9 @@ async function caneConnect(id){
   cane.scanning=false;clearTimeout(cane.scanTimer);bleScan(CANE.service,false).catch(()=>{});
   let r;
   try{r=await bleConnect(id)}catch(e){caneStatus('connect failed, '+msg(e));return caneRetry()}
-  if(!offers(r,CANE.service)){
-    if(offers(r,THUMB_BLE.service)&&thumb.scanning&&!thumb.connected){thumbAttach(id);return caneScan()}
-    bleDrop(id);caneStatus('connect failed, not a cane');return caneRetry();
-  }
-  caneAttach(id);
-  if(offers(r,THUMB_BLE.service)&&thumb.scanning&&!thumb.connected)thumbAttach(id);
+  if(!offers(r,CANE.service)&&!offers(r,THUMB_BLE.service)){bleDrop(id);caneStatus('connect failed, not a cane');return caneRetry()}
+  bleAttach(id,r);
+  if(!offers(r,CANE.service))caneScan();   // a lever whose cached name misled; the cane is still looked for
 }
 async function caneAttach(id){
   cane.scanning=false;clearTimeout(cane.scanTimer);bleScan(CANE.service,false).catch(()=>{});
@@ -458,7 +522,7 @@ async function caneAttach(id){
     cane.id=id;
     for(const c of [CANE.distance,CANE.button])await call('ble.subscribe',{id,service:CANE.service,characteristic:c});
     await call('ble.subscribe',{id,service:CANE.service,characteristic:CANE.status}).catch(()=>{});
-    cane.connected=true;cane.lost=false;cane.fault=false;cane.motorSent=null;cane.ackWant=0;cane.ackGot=null;cane.unconfirmed=false;
+    cane.connected=true;cane.lost=false;bleRemember(id);cane.fault=false;cane.motorSent=null;cane.ackWant=0;cane.ackGot=null;cane.unconfirmed=false;
     alertLine();caneStatus();note('cane_connected');
     if(on)motor(state);
   }catch(e){cane.id=null;bleDrop(id);caneStatus('connect failed, '+msg(e));caneRetry()}
@@ -495,8 +559,8 @@ function motor(s){
 }
 
 $('cane').onclick=()=>{
-  if(cane.connected||cane.scanning)return caneDisconnect();
-  cane.wanted=true;caneScan();
+  if(cane.connected||cane.scanning){bleSetOff('cane',true);return caneDisconnect()}
+  bleSetOff('cane',false);cane.wanted=true;caneScan();
 };
 
 if(has){
@@ -530,7 +594,6 @@ if(has){
 }
 
 // ── Push to ask ──────────────────────────────────────────────────────────────────────────────────────────────────
-const store={get(k){try{return localStorage.getItem(k)||''}catch{return ''}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
 // This phone holds a P-256 key that never leaves it and an id, together in one IndexedDB record (the CryptoKey is not
 // extractable). On first launch it enrolls the public half with the cloud; the owner approves the phone once, and every
 // ask after that is signed over the time and the body. No secret is typed or shipped. A store that lost the record
@@ -603,7 +666,7 @@ $('cloud-url').onchange=e=>{cloud.url=e.target.value.trim();store.set('ahead.clo
 // it is never normal. Not ported: the Mac's re-arm after 1.6 s without frames (the page writes neutral then, and
 // resumes on fresh frames).
 // <thumb-cue>
-const THUMB={NEUTRAL:90,MIN:75,MAX:105,NEAR:1.55,OPEN:1.65,STOP:.55,HOLD_MS:800,FRAMES:2,STALE_MS:1600};
+const THUMB={NEUTRAL:90,MIN:60,MAX:120,NEAR:1.55,OPEN:1.65,STOP:.55,HOLD_MS:800,FRAMES:2,STALE_MS:1600};
 const THUMB_LANES=['left','center','right'];
 // A cell holds range; the Python's thresholds are distance straight ahead, which is range times the cosine of the
 // bearing. Each cell takes the cosine at its outer edge, the smallest distance ahead the range allows, so the error
@@ -676,7 +739,7 @@ const THUMB_BLE={service:'C0DE0011-CA9E-4A11-8E8D-000000000001',angle:'C0DE0012-
 const CUE_TEXT={left:'left',right:'right',center:'ahead',unknown:'neutral'};
 const LOST_THUMB=[0,.5,1].map(t=>({time:t,intensity:1,sharpness:.3,duration:.3}));
 const thumb={id:null,connected:false,scanning:false,scanTimer:null,retry:null,noBle:false,held:null,flags:null,sent:null,sentAt:0,direction:'unknown',test:null,testTimer:null,
-  cal:{left:parseInt(store.get('ahead.thumb.left'))||80,right:parseInt(store.get('ahead.thumb.right'))||100}};
+  cal:{left:parseInt(store.get('ahead.thumb.left'))||78,right:parseInt(store.get('ahead.thumb.right'))||102}};
 const gate=thumbGate();
 
 function thumbStatus(text){
@@ -735,12 +798,9 @@ async function thumbConnect(id){
   thumb.scanning=false;clearTimeout(thumb.scanTimer);bleScan(THUMB_BLE.service,false).catch(()=>{});
   let r;
   try{r=await bleConnect(id)}catch(e){return thumbStatus('connect failed, '+msg(e))}
-  if(!offers(r,THUMB_BLE.service)){
-    if(offers(r,CANE.service)&&cane.scanning&&!cane.connected){caneAttach(id);return thumbScan()}   // a board whose cached name misled
-    bleDrop(id);return thumbStatus('connect failed, not a thumb lever');
-  }
-  thumbAttach(id);
-  if(offers(r,CANE.service)&&cane.scanning&&!cane.connected)caneAttach(id);
+  if(!offers(r,THUMB_BLE.service)&&!offers(r,CANE.service))return bleDrop(id),thumbStatus('connect failed, not a thumb lever');
+  bleAttach(id,r);
+  if(!offers(r,THUMB_BLE.service))thumbScan();   // a cane whose cached name misled; the lever is still looked for
 }
 const offers=(r,service)=>(r&&r.services||[]).some(s=>String(s.uuid).toUpperCase()===service);
 async function thumbAttach(id){
@@ -748,7 +808,7 @@ async function thumbAttach(id){
   try{
     thumb.id=id;
     await call('ble.subscribe',{id,service:THUMB_BLE.service,characteristic:THUMB_BLE.status});
-    Object.assign(thumb,{connected:true,lost:false,held:null,flags:null,sent:null,direction:'unknown'});gate.reset();
+    bleRemember(id);Object.assign(thumb,{connected:true,lost:false,held:null,flags:null,sent:null,direction:'unknown'});gate.reset();
     thumbWrite(THUMB.NEUTRAL);note('thumb_connected');thumbStatus();
   }catch(e){thumb.id=null;bleDrop(id);thumbStatus('connect failed, '+msg(e))}
 }
@@ -759,8 +819,11 @@ function thumbDisconnect(){
   if(thumb.connected){thumbWrite(THUMB.NEUTRAL);thumb.connected=false;bleDrop(thumb.id)}
   thumb.direction='unknown';thumbStatus('not connected');
 }
-$('thumb-connect').onclick=()=>thumb.connected||thumb.scanning?thumbDisconnect():thumbScan();
-$('thumb').onclick=thumbDisconnect;
+$('thumb-connect').onclick=()=>{
+  if(thumb.connected||thumb.scanning){bleSetOff('thumb',true);return thumbDisconnect()}
+  bleSetOff('thumb',false);thumbScan();
+};
+$('thumb').onclick=()=>{bleSetOff('thumb',true);thumbDisconnect()};
 
 // Calibration with the walk stopped: a test button holds its side for as long as it is held, rewritten every 200 ms
 // inside the board's timeout; release writes neutral.
@@ -775,13 +838,13 @@ for(const [id,side] of [['thumb-test-l','left'],['thumb-test-r','right']]){
   b.addEventListener('pointerdown',()=>{if(b.disabled)return;thumbCal();thumbTest(side)});
   for(const ev of ['pointerup','pointercancel','pointerleave'])b.addEventListener(ev,()=>thumbTest(null));
 }
-// The same rule as backend/config.py: 75 to 105, left and right on opposite sides of 90.
+// The same rule as backend/config.py: 60 to 120, left and right on opposite sides of 90.
 function thumbCal(){
   const l=parseInt($('thumb-left').value), r=parseInt($('thumb-right').value);
   const ok=[l,r].every(v=>v>=THUMB.MIN&&v<=THUMB.MAX)&&(l-THUMB.NEUTRAL)*(r-THUMB.NEUTRAL)<0;
   if(ok&&l===thumb.cal.left&&r===thumb.cal.right)return;
   if(ok){thumb.cal={left:l,right:r};store.set('ahead.thumb.left',l);store.set('ahead.thumb.right',r);thumbStatus()}
-  else{$('thumb-left').value=thumb.cal.left;$('thumb-right').value=thumb.cal.right;thumbStatus(`angles are 75 to 105, left and right on opposite sides of 90; kept ${thumb.cal.left} and ${thumb.cal.right}`)}
+  else{$('thumb-left').value=thumb.cal.left;$('thumb-right').value=thumb.cal.right;thumbStatus(`angles are 60 to 120, left and right on opposite sides of 90; kept ${thumb.cal.left} and ${thumb.cal.right}`)}
 }
 $('thumb-left').value=thumb.cal.left;$('thumb-right').value=thumb.cal.right;
 $('thumb-left').onchange=$('thumb-right').onchange=thumbCal;
@@ -791,8 +854,9 @@ if(has){
   // on connect correct a name iOS cached from other firmware.
   native.on('ble.device',d=>{
     const c=cane.scanning&&!cane.connected, t=thumb.scanning&&!thumb.connected;
-    if(c&&t)(d.name==='Thumb'?thumbConnect:caneConnect)(d.id);
-    else if(c)caneConnect(d.id);
+    bleName(d.id,d.name);
+    if(c&&t)/^Thumb\b/.test(d.name)?thumbConnect(d.id):caneSeen(d);
+    else if(c)caneSeen(d);
     else if(t)thumbConnect(d.id);
   });
   native.on('ble.value',v=>{
@@ -810,6 +874,7 @@ if(has){
     note('thumb_lost');pattern(LOST_THUMB);thumbStatus('disconnected; the board is neutral');
     if(on)thumbScan();
   });
+  native.on('ble.disconnected',d=>{if(bleKnown.has(d.id))setTimeout(()=>bleResume(d.id),0)});
 }
 
 // ── Show on a computer ───────────────────────────────────────────────────────────────────────────────────────────
@@ -1215,6 +1280,7 @@ $('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))$('sheet').clos
     if(!l.includes('depth.start')){$('stat').textContent='This build of Bridge has no LiDAR depth.';$('go').disabled=true;return}
     // Each optional feature disables only its own button.
     if(!l.includes('ble.scan')){$('cane').disabled=$('thumb-connect').disabled=true;$('cane-stat').textContent='Cane: this build of Bridge has no Bluetooth.';$('thumb-stat').textContent='Thumb lever: this build has no Bluetooth.';thumb.noBle=true}
+    else bleKnown.forEach(bleResume);
     if(!l.includes('camera.photo')||!l.includes('vision.classify')){$('ask').disabled=$('voice').disabled=true;show('ask','This build of Bridge has no camera or vision.')}
     else if(!l.includes('speech.start'))$('voice').disabled=true;
     $('stat').textContent='Ready. Start, or press the Action Button.';

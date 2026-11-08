@@ -54,8 +54,8 @@ class HttpDevice:
                 raise ValueError("Device not ready")
             if (
                 ack.neutral != 90
-                or ack.min_angle != 75
-                or ack.max_angle != 105
+                or ack.min_angle != 60
+                or ack.max_angle != 120
                 or not 100 <= ack.timeout_ms <= 800
             ):
                 raise ValueError("Firmware safety contract differs")
@@ -69,8 +69,8 @@ class HttpDevice:
             ) from exc
 
     async def steer(self, angle: int) -> dict:
-        if not 75 <= angle <= 105:
-            raise DeviceError("Angle outside 75..105")
+        if not 60 <= angle <= 120:
+            raise DeviceError("Angle outside 60..120")
         return await self._get("/steer", angle)
 
     async def health(self) -> dict:
@@ -102,8 +102,8 @@ class MockDevice:
         self.calls: list[int] = []
 
     async def steer(self, angle: int) -> dict:
-        if not 75 <= angle <= 105:
-            raise DeviceError("Angle outside 75..105")
+        if not 60 <= angle <= 120:
+            raise DeviceError("Angle outside 60..120")
         self.angle, self.last = angle, time.monotonic()
         self.calls.append(angle)
         self.calls = self.calls[-100:]

@@ -84,7 +84,7 @@ String statusJson() {
     String("{\"ok\":") + (configured ? "true" : "false") +
     ",\"configured\":" + (configured ? "true" : "false") +
     ",\"angle\":" + String(currentAngle) +
-    ",\"neutral\":90,\"min_angle\":75,\"max_angle\":105" +
+    ",\"neutral\":90,\"min_angle\":60,\"max_angle\":120" +
     ",\"timeout_ms\":800,\"failsafe\":" +
     (failsafeActive ? "true" : "false") +
     ",\"wifi\":" +
@@ -311,7 +311,7 @@ void setup() {
       server.send(
         400,
         "application/json",
-        "{\"error\":\"exactly one integer angle 75..105 required\"}"
+        "{\"error\":\"exactly one integer angle 60..120 required\"}"
       );
       return;
     }

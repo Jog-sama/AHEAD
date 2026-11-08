@@ -17,7 +17,7 @@ On this path the phone never talks to the ESP32. On the phone path the Ahead app
 
 ## API
 
-Every `/api/*` route requires `X-API-Key`; `/health` is public. Firmware `/steer?angle=` requires `X-Device-Token` and accepts 75 to 105.
+Every `/api/*` route requires `X-API-Key`; `/health` is public. Firmware `/steer?angle=` requires `X-Device-Token` and accepts 60 to 120.
 
 | Route | Body | Does |
 |---|---|---|

@@ -26,8 +26,8 @@ def create_sim(token: str) -> FastAPI:
             wifi=True,
             angle=app.state.angle,
             neutral=90,
-            min_angle=75,
-            max_angle=105,
+            min_angle=60,
+            max_angle=120,
             timeout_ms=800,
             failsafe=expired,
             simulation=True,
@@ -45,8 +45,8 @@ def create_sim(token: str) -> FastAPI:
             return JSONResponse({"error": "unauthorized"}, status_code=401)
         args = list(request.query_params.multi_items())
         text = request.query_params.get("angle", "")
-        if len(args) != 1 or not re.fullmatch(r"[0-9]{1,3}", text) or not 75 <= int(text) <= 105:
-            return JSONResponse({"error": "angle must be 75..105"}, status_code=400)
+        if len(args) != 1 or not re.fullmatch(r"[0-9]{1,3}", text) or not 60 <= int(text) <= 120:
+            return JSONResponse({"error": "angle must be 60..120"}, status_code=400)
         app.state.angle, app.state.last = int(text), time.monotonic()
         app.state.history.append(int(text))
         return status()

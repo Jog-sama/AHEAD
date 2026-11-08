@@ -8,9 +8,10 @@
 #include <Wire.h>
 #endif
 
-// Free on a C3 SuperMini: 8 is the LED, 9 the boot button, 18 and 19 the USB port.
+// Free on a C3 SuperMini: 8 is the LED, 9 the boot button, 18 and 19 the USB port, and 2 is a strapping pin that must
+// read high at reset, so no button goes there.
 #ifndef CANE_BUTTON_PIN
-#define CANE_BUTTON_PIN 10  // to GND; the boot button on 9 counts as the same button, for the bench
+#define CANE_BUTTON_PIN 21  // to GND; the boot button on 9 counts as the same button, for the bench
 #endif
 #ifndef CANE_TRIG_PIN
 #define CANE_TRIG_PIN 5
@@ -278,6 +279,7 @@ void setup() {
   analogSetPinAttenuation(CANE_BATTERY_PIN, ADC_11db);
 #endif
   Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);  // a closed host port must never stall loop(): the watchdog tripped three times on it
 
   // The Arduino core starts the task watchdog without loop() in it; 3 s, a panic and a reset if loop() stalls.
   esp_task_wdt_config_t wdt = {.timeout_ms = 3000, .idle_core_mask = 0, .trigger_panic = true};
@@ -343,8 +345,8 @@ void loop() {
     if (mm == kNoReading) Serial.print("mm=none");
     else Serial.printf("mm=%u", mm);
     if (mm_min != kNoReading) Serial.printf(" (%u-%u)", mm_min, mm_max);
-    Serial.printf(" local=%u phone=%u played=%u fault=%d bat=%u ble=%s\n", local_state, phone, played, fault,
-                  battery, connected ? "connected" : "advertising");
+    Serial.printf(" local=%u phone=%u played=%u fault=%d bat=%u ble=%s up=%lus reset=%d\n", local_state, phone, played,
+                  fault, battery, connected ? "connected" : "advertising", now / 1000, (int)esp_reset_reason());
     mm_min = kNoReading, mm_max = 0;
   }
   delay(5);

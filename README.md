@@ -19,7 +19,7 @@ the board from it; what its 5V pin carries while on the cell is not recorded her
 | 6 | ultrasonic ECHO | a JSN-SR04T-2.0 or -3.0, rated 3–5.5 V, from the 3V3 pin, so ECHO is 3.3 V; the C3's pins take no more. The 5 V-only revision is not covered |
 | 4, 3 | VL53L0X SDA, SCL | the `vl53l0x` build; 3V3 and GND, as in `gateway/`'s distance add-on |
 | 7 | motor, through an NPN | 7 → 1 kΩ → base of a 2N2222A or S8050; emitter to GND; the motor between 3V3 and the collector, with 100 µF from 3V3 to GND beside it against the inrush (the monitor's first line says `after a brown-out` if that was not enough); a 1N4148 across the motor, cathode to 3V3; 10 kΩ from base to GND, which is what holds the motor off while the pins float through a reset or brown-out |
-| 10 | button, to GND | internal pull-up; the board's BOOT button (GPIO 9) counts as the same button, for the bench |
+| 21 | button, to GND | internal pull-up; the board's BOOT button (GPIO 9) counts as the same button, for the bench. Not GPIO 2: the ROM reads it as a strapping pin at reset |
 | 0 | battery, optional | the cell through 100 kΩ to GPIO 0, 100 kΩ and 100 nF from there to GND (the ADC wants a low source impedance); build with `-DCANE_BATTERY_PIN=0` (and `-DCANE_BATTERY_DIVIDER=` the ratio if not 2). Unwired, status says 0xFF |
 | 8 | the board's LED | on while a phone is connected |
 
@@ -31,7 +31,7 @@ Every wired pin is a `-DCANE_*_PIN` build flag (`src/main.cpp`, top).
 cd cane
 pio run -t upload                    # the JSN-SR04T, default
 pio run -e vl53l0x -t upload         # the VL53L0X instead, for the bench until the ultrasonic arrives
-pio device monitor                   # one line a second: mm=1830 (1790-1860) local=1 phone=0 played=1 fault=0 bat=255 ble=advertising
+pio device monitor                   # one line a second: mm=1830 (1790-1860) local=1 phone=0 played=1 fault=0 bat=255 ble=advertising up=42s reset=1
 ```
 
 The second number pair is the second's lowest and highest reading; `bat=255` is 0xFF, no divider wired.

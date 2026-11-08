@@ -5,7 +5,7 @@
 #include <NimBLEDevice.h>
 #include <esp_task_wdt.h>
 #include "driver/gpio.h"
-#include "../../TactileVector/Safety.h"
+#include "Safety.h"
 
 #if __has_include("config.h")
 #include "config.h"

@@ -173,13 +173,13 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <section class="card phone-only" aria-label=Setup>
   <div class=row><label for=mount>Camera height, m</label><input id=mount type=number inputmode=decimal step=0.05 min=0.5 max=2 value=1.3></div>
   <div class=row><label for=side>Side in slow pulses</label><input id=side type=checkbox role=switch></div>
-  <div class=row><label for=sound>Sound with pulses</label><input id=sound type=checkbox role=switch></div>
+  <div class=row><label for=sound>Sound under 1 m</label><input id=sound type=checkbox role=switch></div>
   <div class=row><label for=dim>Dim the screen while walking</label><input id=dim type=checkbox role=switch checked></div>
   <div class=pad><button class=btn id=learn-open>Feel the code</button></div>
   <div class=row><label for=cloud-url>Cloud</label><input id=cloud-url type=url inputmode=url autocapitalize=off autocorrect=off spellcheck=false placeholder="https://…"></div>
   <div class=pad><p class=stat role=status id=cloud-stat>Cloud: off. Questions are answered on the phone.</p></div>
 </section>
-<p class="foot phone-only">Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound with pulses plays a short tone with each one, higher when close, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone asks the cloud once to be approved; after that a question, the photo and the depth go to it, nothing else.</p>
+<p class="foot phone-only">Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound under 1 m plays a short tone with each fast pulse, none for slow ones, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone asks the cloud once to be approved; after that a question, the photo and the depth go to it, nothing else.</p>
 
 <div id=computer>
 <h2 class=phone-only>Computer</h2>
@@ -238,17 +238,18 @@ const SIDE={ahead:[{time:0,...PULSE.slow}],
   left:[{time:0,intensity:1,sharpness:.7,duration:.04},{time:.13,intensity:1,sharpness:.7,duration:.04}],
   right:[{time:0,intensity:1,sharpness:.3,duration:.25}]};
 let sideOn=false, soundOn=false, dimOn=true;
-// Sound with pulses, a setting, off by default: a short tone per pulse, higher when close, panned to the side the
-// nearest thing is on, which headphones make plain. The app plays it with the ring switch on silent.
+// Sound under 1 m, a setting, off by default: a short tone with each fast pulse only, panned to the side the nearest
+// thing is on, which headphones make plain. Slow pulses stay silent: at 2.5 m a tone every 0.6 s covers the traffic
+// the walker listens for, and the haptic already says it. The app plays it with the ring switch on silent.
 let actx=null;
-function earcon(kind,side){
+function earcon(side){
   if(!soundOn)return;
   try{
     actx??=new AudioContext();actx.resume();
     const t=actx.currentTime, o=actx.createOscillator(), g=actx.createGain(), p=actx.createStereoPanner();
-    o.frequency.value=kind==='fast'?880:kind==='slow'?523:330;
+    o.frequency.value=880;
     p.pan.value=side==='left'?-.9:side==='right'?.9:0;
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.008);g.gain.exponentialRampToValueAtTime(.001,t+(kind==='fast'?.07:.11));
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.008);g.gain.exponentialRampToValueAtTime(.001,t+.07);
     o.connect(g).connect(p).connect(actx.destination);o.start(t);o.stop(t+.13);
   }catch{}
 }
@@ -333,7 +334,7 @@ function schedule(){
   const deg=nearest?bearing(nearest.c)*180/Math.PI:0, side=deg<-10?'left':deg>10?'right':'ahead';
   if(state==='slow'&&sideOn&&nearest)pattern(SIDE[side]);
   else pattern([{time:0,...PULSE[state]}]);
-  earcon(state,side);
+  if(state==='fast')earcon(side);
   timer=setTimeout(schedule,RATE[state]);
 }
 
@@ -576,7 +577,7 @@ $('cloud-url').value=cloud.url;cloudStatus();
 sideOn=store.get('ahead.side')==='1';$('side').checked=sideOn;
 soundOn=store.get('ahead.sound')==='1';$('sound').checked=soundOn;
 dimOn=store.get('ahead.dim')!=='0';$('dim').checked=dimOn;
-$('sound').onchange=e=>{soundOn=e.target.checked;store.set('ahead.sound',soundOn?'1':'0');note('sound',{text:soundOn?'on':'off'});if(soundOn)earcon('slow','ahead')};
+$('sound').onchange=e=>{soundOn=e.target.checked;store.set('ahead.sound',soundOn?'1':'0');note('sound',{text:soundOn?'on':'off'});if(soundOn)earcon('ahead')};
 $('dim').onchange=e=>{dimOn=e.target.checked;store.set('ahead.dim',dimOn?'1':'0');if(on)dim(dimOn)};
 $('side').onchange=e=>{sideOn=e.target.checked;store.set('ahead.side',sideOn?'1':'0');note('side',{text:sideOn?'on':'off'})};
 $('cloud-url').onchange=e=>{cloud.url=e.target.value.trim();store.set('ahead.cloud.url',cloud.url);cloud.status='off';enroll()};
@@ -1152,10 +1153,10 @@ $('settings').addEventListener('click',()=>{if(on)dim(false)});
 
 // Feel the code: each pattern said, then played, so the code is learned by feel; offered once on first launch.
 const LEARN=[
-  ['Slow','Slow pulses: something within two and a half metres.',()=>{for(let i=0;i<4;i++)setTimeout(()=>{pattern([{time:0,...PULSE.slow}]);earcon('slow','ahead')},i*RATE.slow)}],
-  ['Fast','Fast pulses: something within one metre. Stop.',()=>{for(let i=0;i<8;i++)setTimeout(()=>{pattern([{time:0,...PULSE.fast}]);earcon('fast','ahead')},i*RATE.fast)}],
-  ['Left','With side in slow pulses on, two short taps: something to the left.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.left);earcon('slow','left')},i*RATE.slow)}],
-  ['Right','One long buzz: something to the right.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.right);earcon('slow','right')},i*RATE.slow)}],
+  ['Slow','Slow pulses: something within two and a half metres.',()=>{for(let i=0;i<4;i++)setTimeout(()=>{pattern([{time:0,...PULSE.slow}])},i*RATE.slow)}],
+  ['Fast','Fast pulses: something within one metre. Stop.',()=>{for(let i=0;i<8;i++)setTimeout(()=>{pattern([{time:0,...PULSE.fast}]);earcon('ahead')},i*RATE.fast)}],
+  ['Left','With side in slow pulses on, two short taps: something to the left.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.left)},i*RATE.slow)}],
+  ['Right','One long buzz: something to the right.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.right)},i*RATE.slow)}],
   ['Depth lost','Three sharp taps: the phone cannot see, or something is against it. That part of the view is not watched.',()=>pattern(LOST_DEPTH)],
   ['Cane lost','Two long buzzes: the cane disconnected.',()=>pattern(LOST_CANE)],
   ['Thumb lever lost','Three long buzzes: the thumb lever disconnected; it rests at neutral.',()=>pattern(LOST_THUMB)],

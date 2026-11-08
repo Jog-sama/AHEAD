@@ -25,12 +25,18 @@ the board from it; what its 5V pin carries while on the cell is not recorded her
 
 Every wired pin is a `-DCANE_*_PIN` build flag (`src/main.cpp`, top).
 
+The `devkit-*` builds are the same firmware on an ESP32 DevKit V1 (WROOM-32, the bench spare, 2026-11-07), whose pins
+differ: button D4 to GND (its BOOT button on 0 counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19,
+motor 23, LED 2. Its serial port is a CP2102, `/dev/cu.usbserial-*`. Not 1 or 3, which are that port, and not 6 to 11,
+the flash.
+
 ## Build and flash
 
 ```sh
 cd cane
 pio run -t upload                    # the JSN-SR04T, default
 pio run -e vl53l0x -t upload         # the VL53L0X instead, for the bench until the ultrasonic arrives
+pio run -e devkit-vl53l0x -t upload  # either, with devkit- in front, on the ESP32 DevKit V1
 pio device monitor                   # one line a second: mm=1830 (1790-1860) local=1 phone=0 played=1 fault=0 bat=255 ble=advertising up=42s reset=1
 ```
 

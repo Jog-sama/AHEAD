@@ -9,9 +9,12 @@
 #endif
 
 // Free on a C3 SuperMini: 8 is the LED, 9 the boot button, 18 and 19 the USB port, and 2 is a strapping pin that must
-// read high at reset, so no button goes there.
+// read high at reset, so no button goes there. platformio.ini's devkit section remaps every pin for a classic ESP32.
 #ifndef CANE_BUTTON_PIN
-#define CANE_BUTTON_PIN 21  // to GND; the boot button on 9 counts as the same button, for the bench
+#define CANE_BUTTON_PIN 21  // to GND
+#endif
+#ifndef CANE_BOOT_PIN
+#define CANE_BOOT_PIN 9  // the board's own button counts as the cane's, for the bench
 #endif
 #ifndef CANE_TRIG_PIN
 #define CANE_TRIG_PIN 5
@@ -35,7 +38,10 @@
 #define CANE_BATTERY_DIVIDER 2  // (R_top + R_bottom) / R_bottom
 #endif
 #ifndef CANE_LED_PIN
-#define CANE_LED_PIN 8  // active-low
+#define CANE_LED_PIN 8
+#endif
+#ifndef CANE_LED_ON
+#define CANE_LED_ON LOW
 #endif
 
 namespace {
@@ -242,7 +248,7 @@ void pollButton(unsigned long now) {
   static bool down = false, long_sent = false;
   if (now - tick_at < 20) return;
   tick_at = now;
-  bool pressed = digitalRead(CANE_BUTTON_PIN) == LOW || digitalRead(9) == LOW;
+  bool pressed = digitalRead(CANE_BUTTON_PIN) == LOW || digitalRead(CANE_BOOT_PIN) == LOW;
   down_ticks = pressed ? min(down_ticks + 1, 3) : 0;
   bool now_down = down_ticks >= 2;
   if (now_down && !down) down_at = now, long_sent = false;
@@ -266,9 +272,9 @@ void setup() {
   pinMode(CANE_MOTOR_PIN, OUTPUT);
   digitalWrite(CANE_MOTOR_PIN, LOW);
   pinMode(CANE_LED_PIN, OUTPUT);
-  digitalWrite(CANE_LED_PIN, HIGH);
+  digitalWrite(CANE_LED_PIN, !CANE_LED_ON);
   pinMode(CANE_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(9, INPUT_PULLUP);
+  pinMode(CANE_BOOT_PIN, INPUT_PULLUP);
 #ifndef CANE_SENSOR_VL53L0X
   pinMode(CANE_TRIG_PIN, OUTPUT);
   digitalWrite(CANE_TRIG_PIN, LOW);
@@ -279,7 +285,9 @@ void setup() {
   analogSetPinAttenuation(CANE_BATTERY_PIN, ADC_11db);
 #endif
   Serial.begin(115200);
+#if ARDUINO_USB_CDC_ON_BOOT
   Serial.setTxTimeoutMs(0);  // a closed host port must never stall loop(): the watchdog tripped three times on it
+#endif
 
   // The Arduino core starts the task watchdog without loop() in it; 3 s, a panic and a reset if loop() stalls.
   esp_task_wdt_config_t wdt = {.timeout_ms = 3000, .idle_core_mask = 0, .trigger_panic = true};
@@ -323,7 +331,7 @@ void loop() {
     phase_at = now;  // a change starts with a pulse
   }
   digitalWrite(CANE_MOTOR_PIN, played && (now - phase_at) % kPeriodMs[played] < kPulseMs);
-  digitalWrite(CANE_LED_PIN, connected ? LOW : HIGH);
+  digitalWrite(CANE_LED_PIN, connected ? CANE_LED_ON : !CANE_LED_ON);
 
   pollButton(now);
 

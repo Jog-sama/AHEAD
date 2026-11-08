@@ -52,7 +52,7 @@ Shared with the Ahead app's page (jonasneves/phone-bridge, `docs/ahead/index.htm
 | distance | N = 2, notify, 10 Hz | uint16 little-endian mm along the cane's axis; 0xFFFF nothing in reach |
 | button | N = 3, notify | uint8: 1 short press, on release; 2 long press, when 600 ms down passes (no 1 follows) |
 | motor | N = 4, write without response | uint8: 0 silent, 1 slow, 2 fast; honoured for 1.5 s from the write |
-| status | N = 5, notify, every 5 s and on change (battery moves in steps of 2) | battery percent (0xFF unknown), flags: bit0 sensor fault, bit1 the pulses playing are the phone's, bit2 the cane's own cue is settled |
+| status | N = 5, notify, every 5 s and on change (battery moves in steps of 2) | battery percent (0xFF unknown), flags: bit0 sensor fault, bit1 the pulses playing are the phone's, bit2 the cane's own cue is settled; then the phone's motor value as the cane holds it (0 once 1.5 s pass without a write), which is how the page knows its writes arrive |
 
 Motor code: slow is 100 ms on every 600 ms, fast 100 ms on every 200 ms; a state change starts with a pulse. The
 cane's own state is slow under 2.5 m and fast under 1.0 m, up at once and down after 4 frames (400 ms) at the lower

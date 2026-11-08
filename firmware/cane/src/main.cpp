@@ -308,7 +308,7 @@ void setup() {
 void loop() {
   static uint32_t seen_frame = 0;
   static unsigned long status_at = 0, log_at = 0, battery_at = 0;
-  static uint8_t sent_status[2] = {0, 0};
+  static uint8_t sent_status[3] = {0, 0, 0};
   static uint16_t settle_mm = kNoReading;
   static unsigned long settle_at = 0;
   esp_task_wdt_reset();
@@ -353,12 +353,14 @@ void loop() {
     readBattery();
   }
   bool phone_plays = !fault && phone && phone >= own;
-  uint8_t status[2] = {battery, (uint8_t)((fault ? kFlagFault : 0) | (phone_plays ? kFlagPhone : 0) |
-                                          (settled ? kFlagSettled : 0))};
-  if (memcmp(status, sent_status, 2) || now - status_at >= kStatusEveryMs) {
-    memcpy(sent_status, status, 2);
+  // The third byte is the phone's motor value as the cane holds it, so the page can tell a write that arrived from one
+  // that did not (the characteristic is write-without-response).
+  uint8_t status[3] = {battery, (uint8_t)((fault ? kFlagFault : 0) | (phone_plays ? kFlagPhone : 0) |
+                                          (settled ? kFlagSettled : 0)), phone};
+  if (memcmp(status, sent_status, 3) || now - status_at >= kStatusEveryMs) {
+    memcpy(sent_status, status, 3);
     status_at = now;
-    notify(status_chr, status, 2);
+    notify(status_chr, status, 3);
   }
 
   if (now - log_at >= 1000) {

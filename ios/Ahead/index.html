@@ -227,6 +227,9 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <script>
 const $=id=>document.getElementById(id), has=!!window.native;
 const NEAR=1.0, FAR=2.5, PATH=0.6, COLS=9, HALF=30, HZ=12;   // metres; the path is ±PATH to the side of straight ahead
+// Closer than CLOSE for COVER_MS is not something the walker is about to hit, it is on the phone: a strap, a coat, a
+// hand. Those cells stop counting and the alert says so, once, rather than fast pulses that never end.
+const CLOSE=0.3, COVER_MS=3000;
 const RATE={slow:600, fast:200};                             // ms between pulses
 const PULSE={slow:{intensity:1,sharpness:.5,duration:.1}, fast:{intensity:1,sharpness:.9,duration:.1}};
 // Side in slow pulses, a setting: rhythm, not strength, carries the side, since rhythm is what the skin tells apart.
@@ -256,7 +259,7 @@ const LOW_CANE=[{time:0,intensity:1,sharpness:.3,duration:.3},{time:.5,intensity
 const bearing=c=>(c-(COLS-1)/2)*(2*HALF/COLS)*Math.PI/180;
 const cells=[...document.querySelectorAll('table.cor tbody td')];  // 0–8 head, 9–17 chest
 const BUTTONS=['go','say','ask','voice','cane','thumb-connect','copy','learn-open'];
-let on=false, state='off', pending=0, timer=null, ticker=null, battTimer=null, lastDepth=0, lastLost=0, depthLost=false, walking=true, t0=0, mount=1.3;
+let on=false, state='off', pending=0, timer=null, ticker=null, battTimer=null, lastDepth=0, lastLost=0, depthLost=false, covered=false, closeSince=[], walking=true, t0=0, mount=1.3;
 let frames=0, lost=0, alerts=0, dist=0, nearest=null, phoneNearest=null, lastCorridor=null, log=[];
 let batt=null, thermal='';
 
@@ -275,19 +278,27 @@ function note(ev,f){
 
 // Alerts that stay until their cause clears; the alert line is their text, never a colour alone.
 function alertLine(){
-  $('alert').textContent=[depthLost?'Depth lost. Nothing is being watched.':'',cane.lost?'Cane disconnected.':''].filter(Boolean).join(' ');
+  $('alert').textContent=[depthLost?'Depth lost. Nothing is being watched.':'',covered?'Something is against the phone; that part of the view is ignored.':'',cane.lost?'Cane disconnected.':''].filter(Boolean).join(' ');
   if(on)live();
 }
 
 // The corridor comes as [chest[9], head[9]], the table shows head on top; a cell counts only inside the walking path.
 function reduce(cor){
   phoneNearest=null;
+  const now=Date.now();let anyCovered=false;
   for(let b=0;b<2;b++)for(let c=0;c<COLS;c++){
-    const d=cor[b][c], td=cells[(1-b)*COLS+c];
-    const inPath=d!=null&&Math.abs(d*Math.sin(bearing(c)))<=PATH;
+    const d=cor[b][c], td=cells[(1-b)*COLS+c], k=b*COLS+c;
+    if(d!=null&&d<CLOSE)closeSince[k]??=now;else closeSince[k]=null;
+    const isCovered=closeSince[k]!=null&&now-closeSince[k]>=COVER_MS;
+    anyCovered||=isCovered;
+    const inPath=d!=null&&!isCovered&&Math.abs(d*Math.sin(bearing(c)))<=PATH;
     td.textContent=d==null?'':d.toFixed(1);
     td.className=d==null?'':(inPath?'':'off ')+(d<NEAR?'fast':d<FAR?'slow':'far');
     if(inPath&&(!phoneNearest||d<phoneNearest.d))phoneNearest={d,b,c};
+  }
+  if(anyCovered!==covered){
+    covered=anyCovered;note(covered?'covered':'uncovered');alertLine();
+    if(covered)pattern(LOST_DEPTH);
   }
 }
 
@@ -1091,7 +1102,7 @@ async function start(){
   t0=Date.now();frames=lost=alerts=dist=0;log=[COLUMNS];mirrorSend(JSON.stringify({type:'reset'}));
   ['m-dist','m-alerts','m-frames','m-lost'].forEach(id=>$(id).textContent='0');$('m-rate').textContent='–';
   await call('depth.start',{hz:HZ,mount});
-  on=true;lastDepth=Date.now();lastLost=0;depthLost=false;state='far';
+  on=true;lastDepth=Date.now();lastLost=0;depthLost=false;covered=false;closeSince=[];state='far';
   for(const [n,a] of [['activity.start',{}],['steps.start',{}],['screen.keepAwake',{on:true}]])call(n,a).catch(()=>{});
   clearInterval(ticker);ticker=setInterval(tick,500);
   clearInterval(battTimer);battTimer=setInterval(battery,60000);battery();
@@ -1108,7 +1119,7 @@ async function stop(){
   call('screen.keepAwake',{on:false}).catch(()=>{});
   motor('far');
   thumbNeutral();clearTimeout(thumb.retry);thumbStatus();
-  depthLost=false;alertLine();
+  depthLost=false;covered=false;closeSince=[];alertLine();
   $('go').textContent='Start';$('go').classList.remove('stop');$('mount').disabled=false;$('state').textContent='Off';$('state-box').dataset.s='';
   live();dim(false);
   $('stat').textContent=`Stopped after ${$('m-time').textContent}, ${alerts} alerts over ${Math.round(dist)} m.`;
@@ -1145,7 +1156,7 @@ const LEARN=[
   ['Fast','Fast pulses: something within one metre. Stop.',()=>{for(let i=0;i<8;i++)setTimeout(()=>{pattern([{time:0,...PULSE.fast}]);earcon('fast','ahead')},i*RATE.fast)}],
   ['Left','With side in slow pulses on, two short taps: something to the left.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.left);earcon('slow','left')},i*RATE.slow)}],
   ['Right','One long buzz: something to the right.',()=>{for(let i=0;i<3;i++)setTimeout(()=>{pattern(SIDE.right);earcon('slow','right')},i*RATE.slow)}],
-  ['Depth lost','Three sharp taps: the phone cannot see. Nothing is being watched.',()=>pattern(LOST_DEPTH)],
+  ['Depth lost','Three sharp taps: the phone cannot see, or something is against it. That part of the view is not watched.',()=>pattern(LOST_DEPTH)],
   ['Cane lost','Two long buzzes: the cane disconnected.',()=>pattern(LOST_CANE)],
   ['Thumb lever lost','Three long buzzes: the thumb lever disconnected; it rests at neutral.',()=>pattern(LOST_THUMB)],
 ];

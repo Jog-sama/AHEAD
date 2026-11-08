@@ -27,7 +27,7 @@ Every wired pin is a `-DCANE_*_PIN` build flag (`src/main.cpp`, top).
 
 The `devkit-*` builds are the same firmware on an ESP32 DevKit V1 (WROOM-32, the bench spare, 2026-11-07), whose pins
 differ: button D4 to D13, which the firmware holds low because the board has only two GND pins (its BOOT button on 0
-counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19, motor 23, LED 2. Its serial port is a CP2102, `/dev/cu.usbserial-*`. Not 1 or 3, which are that port, and not 6 to 11,
+counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19, motor 23, LED 2. Its serial port is a CP2102, `/dev/cu.usbserial-*`; with no board plugged in, PlatformIO may pick a Bluetooth speaker's port instead, so name it: `--upload-port /dev/cu.usbserial-0001`. Not 1 or 3, which are that port, and not 6 to 11,
 the flash.
 
 ## Build and flash

@@ -54,16 +54,18 @@ const char kStatusUuid[] = "c0de0005-ca9e-4a11-8e8d-000000000001";
 
 constexpr uint16_t kNoReading = 0xFFFF;
 constexpr uint16_t kSlowUnderMm = 2500, kFastUnderMm = 1000;
+constexpr uint16_t kSettleBandMm = 100;
 constexpr int kDeescalateFrames = 4;
 constexpr unsigned long kFrameMs = 100;
 constexpr unsigned long kPhoneHoldMs = 1500;
+constexpr unsigned long kSettleMs = 5000;
 constexpr unsigned long kLongPressMs = 600;
 constexpr unsigned long kStatusEveryMs = 5000;
 constexpr unsigned long kSensorStaleMs = 1000;
 constexpr unsigned long kPulseMs = 100;
 constexpr unsigned long kPeriodMs[] = {0, 600, 200};
 constexpr uint8_t kBatteryUnknown = 0xFF;
-constexpr uint8_t kFlagFault = 1, kFlagPhone = 2;
+constexpr uint8_t kFlagFault = 1, kFlagPhone = 2, kFlagSettled = 4;
 
 // Written by the sensor task, read by loop().
 volatile uint16_t reading = kNoReading;
@@ -275,6 +277,10 @@ void setup() {
   digitalWrite(CANE_LED_PIN, !CANE_LED_ON);
   pinMode(CANE_BUTTON_PIN, INPUT_PULLUP);
   pinMode(CANE_BOOT_PIN, INPUT_PULLUP);
+#ifdef CANE_GND_PIN
+  pinMode(CANE_GND_PIN, OUTPUT);  // a ground for the button on a board short of GND pins
+  digitalWrite(CANE_GND_PIN, LOW);
+#endif
 #ifndef CANE_SENSOR_VL53L0X
   pinMode(CANE_TRIG_PIN, OUTPUT);
   digitalWrite(CANE_TRIG_PIN, LOW);
@@ -303,6 +309,8 @@ void loop() {
   static uint32_t seen_frame = 0;
   static unsigned long status_at = 0, log_at = 0, battery_at = 0;
   static uint8_t sent_status[2] = {0, 0};
+  static uint16_t settle_mm = kNoReading;
+  static unsigned long settle_at = 0;
   esp_task_wdt_reset();
   unsigned long now = millis();
 
@@ -311,6 +319,7 @@ void loop() {
     uint16_t mm = reading;
     notify(distance_chr, (uint8_t*)&mm, 2);
     if (mm != kNoReading) mm_min = min(mm_min, mm), mm_max = max(mm_max, mm);
+    if (mm == kNoReading || abs((int)mm - (int)settle_mm) > kSettleBandMm) settle_mm = mm, settle_at = now;
     uint8_t want = mm < kFastUnderMm ? 2 : mm < kSlowUnderMm ? 1 : 0;
     if (want >= local_state) {
       local_state = want;
@@ -324,8 +333,12 @@ void loop() {
   bool fault = sensor_fault || now - read_at > kSensorStaleMs;
   bool phone_live = phone_written && now - phone_at < kPhoneHoldMs;
   uint8_t phone = phone_live ? phone_state : 0;
+  // A reading steady for 5 s is a thing the hand has already felt: the cane's own cue rests until it moves by 10 cm,
+  // as the BuzzClip sleeps after 5–7 s at a fixed distance (its manual: irritation while standing near something).
+  bool settled = local_state && settle_mm != kNoReading && now - settle_at >= kSettleMs;
+  uint8_t own = settled ? 0 : local_state;
   // A faulty sensor must not drive the motor, but the phone still may: its cue is independent of this sensor.
-  uint8_t next = fault ? phone : max(local_state, phone);
+  uint8_t next = fault ? phone : max(own, phone);
   if (next != played) {
     played = next;
     phase_at = now;  // a change starts with a pulse
@@ -339,8 +352,9 @@ void loop() {
     battery_at = now;
     readBattery();
   }
-  bool phone_plays = !fault && phone && phone >= local_state;
-  uint8_t status[2] = {battery, (uint8_t)((fault ? kFlagFault : 0) | (phone_plays ? kFlagPhone : 0))};
+  bool phone_plays = !fault && phone && phone >= own;
+  uint8_t status[2] = {battery, (uint8_t)((fault ? kFlagFault : 0) | (phone_plays ? kFlagPhone : 0) |
+                                          (settled ? kFlagSettled : 0))};
   if (memcmp(status, sent_status, 2) || now - status_at >= kStatusEveryMs) {
     memcpy(sent_status, status, 2);
     status_at = now;
@@ -353,8 +367,9 @@ void loop() {
     if (mm == kNoReading) Serial.print("mm=none");
     else Serial.printf("mm=%u", mm);
     if (mm_min != kNoReading) Serial.printf(" (%u-%u)", mm_min, mm_max);
-    Serial.printf(" local=%u phone=%u played=%u fault=%d bat=%u ble=%s up=%lus reset=%d\n", local_state, phone, played,
-                  fault, battery, connected ? "connected" : "advertising", now / 1000, (int)esp_reset_reason());
+    Serial.printf(" local=%u%s phone=%u played=%u fault=%d bat=%u ble=%s up=%lus reset=%d\n", local_state,
+                  settled ? " settled" : "", phone, played, fault, battery, connected ? "connected" : "advertising",
+                  now / 1000, (int)esp_reset_reason());
     mm_min = kNoReading, mm_max = 0;
   }
   delay(5);

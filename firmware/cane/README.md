@@ -26,8 +26,8 @@ the board from it; what its 5V pin carries while on the cell is not recorded her
 Every wired pin is a `-DCANE_*_PIN` build flag (`src/main.cpp`, top).
 
 The `devkit-*` builds are the same firmware on an ESP32 DevKit V1 (WROOM-32, the bench spare, 2026-11-07), whose pins
-differ: button D4 to GND (its BOOT button on 0 counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19,
-motor 23, LED 2. Its serial port is a CP2102, `/dev/cu.usbserial-*`. Not 1 or 3, which are that port, and not 6 to 11,
+differ: button D4 to D13, which the firmware holds low because the board has only two GND pins (its BOOT button on 0
+counts too), VL53L0X SDA D21 and SCL D22, ultrasonic TRIG 18 and ECHO 19, motor 23, LED 2. Its serial port is a CP2102, `/dev/cu.usbserial-*`. Not 1 or 3, which are that port, and not 6 to 11,
 the flash.
 
 ## Build and flash
@@ -52,11 +52,18 @@ Shared with the Ahead app's page (jonasneves/phone-bridge, `docs/ahead/index.htm
 | distance | N = 2, notify, 10 Hz | uint16 little-endian mm along the cane's axis; 0xFFFF nothing in reach |
 | button | N = 3, notify | uint8: 1 short press, on release; 2 long press, when 600 ms down passes (no 1 follows) |
 | motor | N = 4, write without response | uint8: 0 silent, 1 slow, 2 fast; honoured for 1.5 s from the write |
-| status | N = 5, notify, every 5 s and on change (battery moves in steps of 2) | battery percent (0xFF unknown), flags: bit0 sensor fault, bit1 the pulses playing are the phone's |
+| status | N = 5, notify, every 5 s and on change (battery moves in steps of 2) | battery percent (0xFF unknown), flags: bit0 sensor fault, bit1 the pulses playing are the phone's, bit2 the cane's own cue is settled |
 
 Motor code: slow is 100 ms on every 600 ms, fast 100 ms on every 200 ms; a state change starts with a pulse. The
 cane's own state is slow under 2.5 m and fast under 1.0 m, up at once and down after 4 frames (400 ms) at the lower
 level. Played = max(own, phone's if under 1.5 s old); a phone write of 0 never silences the cane's own warning.
+A reading that stays within 10 cm for 5 s settles: the cane's own cue rests, after five seconds of reporting the same
+thing, and comes back with a pulse the moment the reading moves by 10 cm or more. Walking changes the reading, so a
+walker never settles; standing at a counter does. The status line says `settled`, status bit2 is set, and the phone's
+cue is untouched. The BuzzClip sleeps the same way after 5–7 s at a fixed distance
+([its manual](https://manuals.online/imerciv/security-sensor/buzzclip/user-manual/1x8yf): irritation while standing
+near something); 5 of 13 users in a [2026 study](https://pmc.ncbi.nlm.nih.gov/articles/PMC12909938/) still found it
+too frequent, so this alone is not enough.
 
 Fail-safes: the motor pin is driven low first thing at boot and the motor's base pull-down holds it off before that,
 through a brown-out reset included; sensor fault (no echo edge for 1 s, the VL53L0X not answering, or no frame for 1 s,
@@ -79,7 +86,9 @@ service: each characteristic carries its name as a user description.
 4. Status: subscribe to `status`; `FF 00` every 5 s with no battery divider and the sensor answering; `FF 01` with
    the sensor unplugged, and the motor stops within a second even while a `02` is live; `FF 02` while a written state plays.
 5. Link drop: with `02` playing, disconnect: the pulses stop within 1.5 s; the Scanner shows `Cane` again at once.
-6. Watchdog and brown-out: pull the cell with the motor pulsing; it stays off on the reset, and the monitor's first
+6. Settle: a hand held still under 1 m for 5 s: the pulses stop and the monitor says `settled`; move it 10 cm: pulses
+   at once.
+7. Watchdog and brown-out: pull the cell with the motor pulsing; it stays off on the reset, and the monitor's first
    line says `after a brown-out` when that was the reset's cause.
 
 ## Bench log

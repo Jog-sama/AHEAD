@@ -24,13 +24,13 @@
 // HARDWARE
 // ============================================================
 
-// Existing SG90 servo remains on SERVO_PIN from config.h.
+// SG90 servo on SERVO_PIN from config.h.
 // External push button: GPIO3 -> button -> GND.
 constexpr uint8_t BUTTON_PIN = 3;
 constexpr uint32_t BUTTON_DEBOUNCE_MS = 40;
 
 // ============================================================
-// EXISTING CONTROLLER STATE
+// CONTROLLER STATE
 // ============================================================
 
 WebServer server(80);
@@ -98,7 +98,7 @@ String statusJson() {
 }
 
 // ============================================================
-// SAFETY WATCHDOG — UNCHANGED
+// SAFETY WATCHDOG
 // ============================================================
 
 // Independent task: timeout still runs if synchronous
@@ -130,7 +130,7 @@ void watchdogTask(void*) {
 }
 
 // ============================================================
-// NEW: PHYSICAL BUTTON TEST
+// PHYSICAL BUTTON
 // ============================================================
 
 void checkPushButton() {
@@ -170,7 +170,7 @@ void checkPushButton() {
 void setup() {
   Serial.begin(115200);
 
-  // NEW: External push button on GPIO3.
+  // External push button on GPIO3.
   // Internal pull-up keeps input HIGH until button is pressed.
   pinMode(BUTTON_PIN, INPUT_PULLUP);
 
@@ -184,7 +184,7 @@ void setup() {
     return;
   }
 
-  // Existing hardware and credential validation.
+  // Hardware and credential validation.
   bool pinOkay =
     SERVO_PIN >= 0 &&
     GPIO_IS_VALID_OUTPUT_GPIO(SERVO_PIN) &&
@@ -244,7 +244,7 @@ void setup() {
   }
 
   // ==========================================================
-  // WIFI — UNCHANGED
+  // WIFI
   // ==========================================================
 
   WiFi.mode(WIFI_STA);
@@ -258,7 +258,7 @@ void setup() {
   server.collectHeaders(headerKeys, 1);
 
   // ==========================================================
-  // HEALTH ENDPOINT — UNCHANGED
+  // HEALTH ENDPOINT
   // ==========================================================
 
   server.on("/health", HTTP_GET, []() {
@@ -272,7 +272,7 @@ void setup() {
   });
 
   // ==========================================================
-  // SERVO STEERING ENDPOINT — UNCHANGED
+  // SERVO STEERING ENDPOINT
   // ==========================================================
 
   // Read-only: no servo actuation and no Wi-Fi credentials exposed.
@@ -366,7 +366,7 @@ void loop() {
     return;
   }
 
-  // Existing Wi-Fi status reporting.
+  // Wi-Fi status reporting.
   static bool wasConnected = false;
 
   bool connected =
@@ -379,10 +379,10 @@ void loop() {
 
   wasConnected = connected;
 
-  // Existing HTTP server.
+  // HTTP server.
   server.handleClient();
 
-  // NEW: Read physical push button.
+  // Read the physical push button.
   checkPushButton();
 
   delay(2);

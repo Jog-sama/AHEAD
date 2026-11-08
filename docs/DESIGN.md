@@ -27,7 +27,7 @@ Every `/api/*` route requires `X-API-Key`; `/health` is public. Firmware `/steer
 | POST `/api/stop` | `{}` | neutral, disarm, invalidate earlier input |
 | POST `/api/frame?generation=&sequence=` | `image/jpeg` ≤ 400 kB | one frame, no queue |
 | POST `/api/voice` | `{"text":"status"}` | spoken status, never actuates |
-| POST `/api/audio` | audio ≤ 1 MB | optional local Whisper, see [docs/EXTENSIONS.md](docs/EXTENSIONS.md) |
+| POST `/api/audio` | audio ≤ 1 MB | optional local Whisper, see [docs/EXTENSIONS.md](EXTENSIONS.md) |
 
 `401` bad key, `409` stale or wrong mode, `413`/`415`/`422` bad frame, `429` busy, `503` device unreachable. A failed neutral write shows as **unconfirmed**, never as success.
 

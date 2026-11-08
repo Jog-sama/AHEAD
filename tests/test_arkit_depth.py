@@ -1,4 +1,4 @@
-"""Synthetic metric depth + API contract checks. No claims about real iPhone sensing."""
+"""Synthetic metric depth and API contract checks; no real iPhone sensing."""
 import base64
 import json
 from io import BytesIO

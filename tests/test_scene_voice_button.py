@@ -1,4 +1,4 @@
-"""Software-only tests; do not claim real iPhone, Arduino or model inference."""
+"""Software-only tests: no real iPhone, Arduino or model inference."""
 import json
 from pathlib import Path
 
@@ -62,14 +62,11 @@ def test_button_read_auth_and_scene_narration_never_steers(settings, monkeypatch
         assert client.post("/api/voice/scene", json={}, headers=HEADERS).status_code == 409
 
 
-def test_firmware_button_patch_idempotent():
-    from scripts.firmware_button_patch import patch
-    firmware = Path(__file__).resolve().parents[1] / "firmware/TactileVector/TactileVector.ino"
-    modified = patch(firmware.read_text())
-    assert 'server.on("/button"' in modified
-    assert 'buttonPressCount++' in modified
-    assert modified.count('server.on("/steer"') == 1
-    assert patch(modified) == modified
+def test_firmware_has_button_endpoint():
+    firmware = (Path(__file__).resolve().parents[1] / "firmware/TactileVector/TactileVector.ino").read_text()
+    assert 'server.on("/button"' in firmware
+    assert 'buttonPressCount++' in firmware
+    assert firmware.count('server.on("/steer"') == 1
 
 
 def test_high_quality_rgb_override_and_invalid_payload(monkeypatch, settings):

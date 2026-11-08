@@ -212,9 +212,8 @@ final class DepthStreamer: NSObject, ObservableObject, ARSessionDelegate {
             status = "This iPhone does not expose ARKit LiDAR scene depth. Use Safari fallback."
             return
         }
-        // Start the camera FIRST. The old version armed the servo and then waited
-        // for ARKit to initialize, causing the server watchdog to expire its generation.
-        // We arm only after tracked depth frames actually start arriving.
+        // Start the camera first and arm only once tracked depth frames arrive;
+        // arming before ARKit is ready lets the server watchdog expire the generation.
         let initial = Connection(baseURL: url, key: key, generation: 0)
         captureQueue.sync {
             self.sessionEpoch += 1
@@ -420,7 +419,7 @@ final class DepthStreamer: NSObject, ObservableObject, ARSessionDelegate {
         let captured = frame.capturedImage
         let iw = CVPixelBufferGetWidth(captured), ih = CVPixelBufferGetHeight(captured)
         let original = CIImage(cvPixelBuffer: captured)
-        // Important: NO portrait rotation. Sensor pixels, intrinsics and depth must align.
+        // No portrait rotation: sensor pixels, intrinsics and depth must stay aligned.
         let scale = min(1.0, (sceneQuality ? 1120.0 : 640.0) / CGFloat(iw))
         let scaled = original.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         guard let cg = ciContext.createCGImage(scaled, from: scaled.extent),

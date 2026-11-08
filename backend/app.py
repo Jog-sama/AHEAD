@@ -43,8 +43,8 @@ class VoiceRequest(BaseModel):
 
 
 class SceneImageRequest(BaseModel):
-    # High-resolution RGB is sent ONLY when the user explicitly presses talk.
-    # The fast LiDAR frame endpoint and existing Safari camera stay unchanged.
+    # High-resolution RGB is sent only when the user presses talk; the LiDAR
+    # frame endpoint and the Safari camera stream are separate.
     jpeg_b64: str | None = Field(default=None, max_length=1_100_000)
     packet: ARKitPacket | None = None
 
@@ -295,7 +295,7 @@ def create_app(
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from exc
             result = await controller.apply_frame(decision, generation, sequence, received_at)
-            # Preserve the existing spatial voice/Tinker frame context for native frames.
+            # Keep the latest native frame for spatial voice and Tinker context.
             latest.update(
                 jpeg=base64.b64decode(packet.jpeg_b64),
                 generation=generation,
@@ -454,7 +454,7 @@ def create_app(
                 "transcription": transcript,
                 "speech_source": "local_whisper",
             }
-        # Transport capture only. No fake transcription or claim to have understood audio.
+        # Audio is captured only; nothing is transcribed unless local ASR is enabled.
         return {
             "received_bytes": len(data),
             "mime": mime,

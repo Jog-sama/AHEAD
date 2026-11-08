@@ -20,8 +20,6 @@
 | Pushbutton / piezo buzzer | Optional | Presence/type unconfirmed; firmware omits them; phone covers both interactions |
 | Raspberry Pi / HC-SR04 / second servo | 0 required | Optional later; not a dependency |
 
-A checked Co-Lab item meant unavailable at Co-Lab, not “owned.” Do not promote Gemini's speculative kit inventory into a parts-on-table claim.
-
 ## Identify the board and shield before connecting the servo
 
 1. Disconnect USB, battery, and servo. Photograph both sides and read part/revision markings. Locate the exact vendor schematic/pinout matching that revision. ESP32-C3 chip documentation does not describe an arbitrary expansion shield.

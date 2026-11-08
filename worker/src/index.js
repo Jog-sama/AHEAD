@@ -91,15 +91,127 @@ export function speakable(text) {
   return out;
 }
 
-export function checkToken(header, secret) {
-  if (typeof header !== "string" || typeof secret !== "string" || !secret) return false;
-  const m = /^Bearer\s+(\S+)\s*$/.exec(header);
-  if (!m) return false;
-  const a = new TextEncoder().encode(m[1]);
+export function sameToken(given, secret) {
+  if (typeof given !== "string" || typeof secret !== "string" || !secret) return false;
+  const a = new TextEncoder().encode(given);
   const b = new TextEncoder().encode(secret);
   let diff = a.length ^ b.length;
   for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
   return diff === 0;
+}
+
+export function checkToken(header, secret) {
+  const m = typeof header === "string" && /^Bearer\s+(\S+)\s*$/.exec(header);
+  return m ? sameToken(m[1], secret) : false;
+}
+
+// Devices: a phone makes a P-256 key on first launch and enrolls its public half with a name; the owner approves the
+// device once (POST /devices/<id> with the owner token), and from then on the phone signs each request, so no secret
+// is typed into or shipped with the app, and one phone is revoked without touching the others. KV: `pending:<id>` and
+// `device:<id>` hold {name, key, since}; `use:<id>:<day>` counts the day's asks.
+const DEVICE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const SKEW_MS = 60_000;
+const DAY_CAP = 300;
+const PENDING_TTL_S = 3600;  // approval happens with the phone in hand; the page re-enrolls while it waits
+const PENDING_MAX = 20;
+
+const fromB64url = (s) => Uint8Array.from(atob(String(s).replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+export const sha256 = async (text) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)));
+
+export function publicJwk(key) {
+  if (!key || key.kty !== "EC" || key.crv !== "P-256" || typeof key.x !== "string" || typeof key.y !== "string") return null;
+  return { kty: "EC", crv: "P-256", x: key.x, y: key.y };
+}
+
+// Eight hex characters of the key, shown on the phone and in the owner's list, so the owner approves the phone in
+// hand and not one that enrolled with the same name.
+export const fingerprint = async (key) => (await sha256(`${key.x}.${key.y}`)).slice(0, 8);
+
+export async function verifySignature(jwk, message, signature) {
+  try {
+    const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+    return await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, fromB64url(signature), new TextEncoder().encode(message));
+  } catch {
+    return false;
+  }
+}
+
+// The approved device behind a signature over `message`, or null; `time` must be within a minute of now.
+export async function signedBy(env, id, time, signature, message) {
+  const t = Number(time);
+  if (!DEVICE_ID.test(String(id)) || !Number.isFinite(t) || Math.abs(Date.now() - t) > SKEW_MS) return null;
+  const d = await env.DEVICES.get(`device:${id}`, "json");
+  if (!d || !(await verifySignature(d.key, message, signature))) return null;
+  return { id, ...d };
+}
+
+const day = () => new Date().toISOString().slice(0, 10);
+
+async function enroll(request, env, headers) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "bad request" }, 400, headers);
+  }
+  const id = String(body?.id || "");
+  const key = publicJwk(body?.key);
+  const name = String(body?.name || "").replace(/[^\P{C}]/gu, "").trim().slice(0, 40) || "a phone";
+  if (!DEVICE_ID.test(id) || !key) return json({ error: "bad request" }, 400, headers);
+  const fp = await fingerprint(key);
+  // An id already bound to another key is refused, never rebound: a phone whose store lost its key makes a new id.
+  const sameKey = (d) => d && d.key.x === key.x && d.key.y === key.y;
+  const approved = await env.DEVICES.get(`device:${id}`, "json");
+  if (approved) return sameKey(approved) ? json({ status: "approved", fp }, 200, headers) : json({ error: "id taken" }, 409, headers);
+  const pending = await env.DEVICES.get(`pending:${id}`, "json");
+  if (pending && !sameKey(pending)) return json({ error: "id taken" }, 409, headers);
+  if (!pending) {
+    if ((await env.DEVICES.list({ prefix: "pending:", limit: PENDING_MAX })).keys.length >= PENDING_MAX) return json({ error: "try later" }, 429, headers);
+    await env.DEVICES.put(`pending:${id}`, JSON.stringify({ name, key, fp, since: Date.now() }), { expirationTtl: PENDING_TTL_S });
+  }
+  return json({ status: "pending", fp }, 200, headers);
+}
+
+async function enrollStatus(id, env, headers) {
+  if (!DEVICE_ID.test(id)) return json({ status: "unknown" }, 404, headers);
+  if (await env.DEVICES.get(`device:${id}`)) return json({ status: "approved" }, 200, headers);
+  if (await env.DEVICES.get(`pending:${id}`)) return json({ status: "pending" }, 200, headers);
+  return json({ status: "unknown" }, 404, headers);
+}
+
+// The owner's view and switch: GET /devices lists both sets, POST /devices/<id> approves, DELETE /devices/<id> revokes.
+async function devices(request, env, path, headers) {
+  if (!checkToken(request.headers.get("Authorization"), env.OWNER_TOKEN)) return json({ error: "unauthorized" }, 401, headers);
+  const id = path.slice("/devices/".length);
+  if (path === "/devices" && request.method === "GET") {
+    const read = async (prefix) => {
+      const { keys } = await env.DEVICES.list({ prefix });
+      return Promise.all(
+        keys.map(async ({ name }) => {
+          const id = name.slice(prefix.length);
+          const d = await env.DEVICES.get(name, "json");
+          const today = prefix === "device:" ? Number(await env.DEVICES.get(`use:${id}:${day()}`)) || 0 : undefined;
+          return { id, name: d?.name, fp: d?.fp, since: d?.since, today };
+        }),
+      );
+    };
+    return json({ approved: await read("device:"), pending: await read("pending:") }, 200, headers);
+  }
+  if (!DEVICE_ID.test(id)) return json({ error: "no such device" }, 404, headers);
+  if (request.method === "POST") {
+    const p = await env.DEVICES.get(`pending:${id}`, "json");
+    if (!p) return (await env.DEVICES.get(`device:${id}`)) ? json({ status: "approved" }, 200, headers) : json({ error: "no such device" }, 404, headers);
+    await env.DEVICES.put(`device:${id}`, JSON.stringify({ ...p, since: Date.now() }));
+    await env.DEVICES.delete(`pending:${id}`);
+    return json({ status: "approved", name: p.name }, 200, headers);
+  }
+  if (request.method === "DELETE") {
+    await env.DEVICES.delete(`device:${id}`);
+    await env.DEVICES.delete(`pending:${id}`);
+    return json({ status: "revoked" }, 200, headers);
+  }
+  return json({ error: "GET, POST or DELETE" }, 405, headers);
 }
 
 // The corridor goes to the model as bearings and bands, never as numbers,
@@ -140,8 +252,8 @@ function corsHeaders(origin) {
   const h = { "Content-Type": "application/json; charset=utf-8", Vary: "Origin" };
   if (origin !== null && ALLOWED_ORIGINS.includes(origin)) {
     h["Access-Control-Allow-Origin"] = origin;
-    h["Access-Control-Allow-Methods"] = "POST, OPTIONS";
-    h["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
+    h["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS";
+    h["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Device, X-Time, X-Signature";
     h["Access-Control-Max-Age"] = "86400";
   }
   return h;
@@ -192,20 +304,170 @@ async function ask(env, { image, corridor, question }) {
   }
 }
 
+// Mirror: the phone shows its screen on a computer during a demo. One Durable Object per room code holds one
+// WebSocket from the phone (the sender, which proves itself in its first message: the owner token, or its device's
+// signature over `mirror.<code>.<time>`) and any number of
+// viewers (the page opened on a computer with the code; the code, 8 characters from a 32-letter alphabet, is the
+// only thing a viewer needs). Every message from the phone is a full snapshot of what its screen shows, so the
+// latest one is replayed to a viewer that joins late; the photo never passes through here.
+export const ROOM = /^[A-HJ-NP-Z2-9]{8}$/;
+const HELLO_MS = 5000;
+
+export class Mirror {
+  constructor(ctx, env) {
+    this.ctx = ctx;
+    this.env = env;
+    this.last = null;
+  }
+
+  fetch(request) {
+    const role = new URL(request.url).searchParams.get("role") === "send" ? "send" : "watch";
+    const pair = new WebSocketPair();
+    const [client, server] = [pair[0], pair[1]];
+    this.ctx.acceptWebSocket(server, [role]);
+    if (role === "send") {
+      server.serializeAttachment({ auth: false, since: Date.now(), code: new URL(request.url).pathname.slice("/mirror/".length) });
+    } else {
+      server.send(JSON.stringify({ type: "phone", on: this.senders().length > 0 }));
+      if (this.last) server.send(this.last);
+      this.tellSenders();
+    }
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  senders() {
+    return this.ctx.getWebSockets("send").filter((ws) => ws.deserializeAttachment()?.auth);
+  }
+
+  broadcast(tag, text) {
+    for (const ws of this.ctx.getWebSockets(tag)) {
+      try {
+        ws.send(text);
+      } catch {}
+    }
+  }
+
+  tellSenders(except) {
+    const n = this.ctx.getWebSockets("watch").filter((w) => w !== except).length;
+    for (const ws of this.senders()) {
+      try {
+        ws.send(JSON.stringify({ type: "watchers", n }));
+      } catch {}
+    }
+  }
+
+  async webSocketMessage(ws, message) {
+    if (typeof message !== "string" || !this.ctx.getTags(ws).includes("send")) return;
+    const state = ws.deserializeAttachment() || {};
+    if (!state.auth) {
+      // The phone's first snapshot follows its hello at once, and a device hello is verified against KV, an await
+      // other events run through; what arrives meanwhile waits in a queue instead of being read as a failed hello.
+      this.queued ??= new Map();
+      if (this.queued.has(ws)) {
+        this.queued.get(ws).push(message);
+        return;
+      }
+      let hello = null;
+      try {
+        hello = JSON.parse(message);
+      } catch {}
+      let ok = hello?.type === "hello" && Date.now() - (state.since || 0) <= HELLO_MS;
+      if (ok && hello.device) {
+        const d = hello.device;
+        this.queued.set(ws, []);
+        ok = Boolean(await signedBy(this.env, d.id, d.time, d.sig, `mirror.${state.code}.${d.time}`));
+      } else if (ok) ok = sameToken(hello.token, this.env.OWNER_TOKEN);
+      const later = this.queued.get(ws) || [];
+      this.queued.delete(ws);
+      if (!ok) {
+        ws.close(4001, "unauthorized");
+        return;
+      }
+      ws.serializeAttachment({ auth: true });
+      ws.send(JSON.stringify({ type: "watchers", n: this.ctx.getWebSockets("watch").length }));
+      this.broadcast("watch", JSON.stringify({ type: "phone", on: true }));
+      for (const m of later) this.relay(m);
+      return;
+    }
+    this.relay(message);
+  }
+
+  relay(message) {
+    if (message.length > 65536) return;
+    if (message.startsWith('{"type":"state"')) this.last = message;
+    this.broadcast("watch", message);
+  }
+
+  webSocketClose(ws) {
+    this.gone(ws);
+  }
+
+  webSocketError(ws) {
+    this.gone(ws);
+  }
+
+  gone(ws) {
+    this.queued?.delete(ws);
+    const tags = this.ctx.getTags(ws);
+    try {
+      ws.close(1000);
+    } catch {}
+    if (tags.includes("send")) {
+      if (ws.deserializeAttachment()?.auth && this.senders().filter((s) => s !== ws).length === 0) {
+        this.last = null;
+        this.broadcast("watch", JSON.stringify({ type: "phone", on: false }));
+      }
+    } else {
+      this.tellSenders(ws);
+    }
+  }
+}
+
+function mirror(request, env, origin, headers) {
+  const code = new URL(request.url).pathname.slice("/mirror/".length);
+  if (!ROOM.test(code)) return json({ error: "no such room" }, 404, headers);
+  if (origin !== null && !ALLOWED_ORIGINS.includes(origin)) return json({ error: "forbidden" }, 403, headers);
+  if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return json({ error: "websocket only" }, 426, headers);
+  return env.MIRROR.get(env.MIRROR.idFromName(code)).fetch(request);
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
     const headers = corsHeaders(origin);
+    const path = new URL(request.url).pathname;
+    if (path.startsWith("/mirror/")) return mirror(request, env, origin, headers);
     if (request.method === "OPTIONS") {
       const allowed = origin === null || Boolean(headers["Access-Control-Allow-Origin"]);
       return new Response(null, { status: allowed ? 204 : 403, headers });
     }
+    if (origin !== null && !ALLOWED_ORIGINS.includes(origin)) return json({ error: "forbidden" }, 403, headers);
+    if (path === "/enroll" && request.method === "POST") return enroll(request, env, headers);
+    if (path.startsWith("/enroll/") && request.method === "GET") return enrollStatus(path.slice("/enroll/".length), env, headers);
+    if (path === "/devices" || path.startsWith("/devices/")) return devices(request, env, path, headers);
+    if (path !== "/") return json({ error: "not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "POST only" }, 405, headers);
-    if (!checkToken(request.headers.get("Authorization"), env.SHARED_TOKEN)) return json({ error: "unauthorized" }, 401, headers);
+
+    // Either the owner's token or an approved device's signature over the time and the body's hash.
+    const raw = await request.text();
+    let who = checkToken(request.headers.get("Authorization"), env.OWNER_TOKEN) ? "owner" : null;
+    if (!who) {
+      const h = (n) => request.headers.get(n) || "";
+      const d = await signedBy(env, h("X-Device"), h("X-Time"), h("X-Signature"), `${h("X-Time")}.${await sha256(raw)}`);
+      if (!d) {
+        const pending = DEVICE_ID.test(h("X-Device")) && (await env.DEVICES.get(`pending:${h("X-Device")}`));
+        return json({ error: pending ? "pending approval" : "unauthorized" }, 401, headers);
+      }
+      const useKey = `use:${d.id}:${day()}`;
+      const used = Number(await env.DEVICES.get(useKey)) || 0;
+      if (used >= DAY_CAP) return json({ ...NO_ANSWER, reason: "daily limit" }, 429, headers);
+      await env.DEVICES.put(useKey, String(used + 1), { expirationTtl: 2 * 86400 });
+      who = d.name;
+    }
 
     let body;
     try {
-      body = await request.json();
+      body = JSON.parse(raw);
     } catch {
       return json({ ...NO_ANSWER, reason: "bad request" }, 400, headers);
     }

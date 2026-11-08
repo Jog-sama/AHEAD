@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import worker, { CROSSING, NO_ANSWER } from "../src/index.js";
 
-const env = { SHARED_TOKEN: "tok", ANTHROPIC_API_KEY: "key" };
+const env = { OWNER_TOKEN: "tok", ANTHROPIC_API_KEY: "key", DEVICES: { get: async () => null } };
 const PIXEL = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
 const post = (body, headers = {}) =>
   new Request("https://ahead-ask.test/", {

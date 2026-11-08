@@ -95,9 +95,12 @@ def create_app(
     sender = None
     if os.getenv("TV_INFORMER_AUTO_SEND") == "1":
         try:
-            sender = InformerWebhook(os.getenv("TV_INFORMER_WEBHOOK_URL", ""))
+            sender = InformerWebhook(
+                os.getenv("TV_INFORMER_WEBHOOK_URL", ""),
+                os.getenv("TV_INFORMER_WEBHOOK_SECRET", ""),
+            )
         except ValueError:
-            export_error = "Invalid Informer signed URL; events kept locally"
+            export_error = "Invalid Informer URL or secret; events kept locally"
     speech = transcriber
     if speech is None and os.getenv("TV_WHISPER_MODEL"):
         speech = LocalWhisper(os.environ["TV_WHISPER_MODEL"])
@@ -205,6 +208,10 @@ def create_app(
                 "model_error": getattr(obstacle_detector, "unavailable_reason", None),
             },
             "informer": {"enabled": sender is not None, "error": export_error},
+            "tinker": {
+                "enabled": os.getenv("TV_TINKER_ENABLED") == "1",
+                "checkpoint_configured": bool(os.getenv("TV_TINKER_CHECKPOINT")),
+            },
         }
 
     @app.get("/api/hazards", dependencies=auth)
@@ -414,9 +421,6 @@ def create_app(
             or time.monotonic() - controller.last_frame_at > 0.7
             or time.monotonic() - snapshot["received"] > 3
         ):
-            return {"phrase": "Scene changed. Ask again.", "source": "local_guard"}
-        current = controller.voice(body.text)["phrase"]
-        if result["phrase"] not in {current, "Scene uncertain. Hold position."}:
             return {"phrase": "Scene changed. Ask again.", "source": "local_guard"}
         return result
 

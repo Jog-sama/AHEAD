@@ -1,7 +1,7 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TactileVector Hazard Review</title></head><body>
-<main><p>TACTILEVECTOR / FACILITIES REVIEW</p><h1>Hazard candidates</h1>
-<p>Model observations need human review. Repeated observations are not unique infrastructure defects or ADA violations.</p>
-<button id="refresh">Refresh</button> <button id="mapButton">Load location map</button>
-<p id="status">Connecting…</p><div id="map"></div><h2>Last seven days</h2><ul id="summary"></ul>
-<table><thead><tr><th>Observed</th><th>Object</th><th>Source</th><th>Location</th><th>Reason</th></tr></thead><tbody id="events"></tbody></table></main>
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AHEAD Hazard Review</title></head><body>
+<main><header><p class="eyebrow">AHEAD · INFORMER APPS</p><h1>Hazard review</h1><p>Model observations are candidates for human review—not verified routes, unique defects, or ADA determinations.</p></header>
+<section class="controls"><button id="refresh">Refresh</button><button id="mapButton">Load map</button><label>Show <select id="filter"><option value="all">all</option><option value="review">review candidates</option><option value="simulated">simulated</option></select></label><span id="status" role="status">Connecting…</span></section>
+<section class="kpis"><article><strong id="observations">—</strong><span>observations · 7d</span></article><article><strong id="clusters">—</strong><span>deduplicated clusters</span></article><article><strong id="candidates">—</strong><span>review candidates</span></article><article><strong id="mapped">—</strong><span>with location</span></article></section>
+<section class="summary"><h2>Plain-language summary</h2><p id="narrative">Waiting for data.</p><ul id="summary"></ul></section><div id="map" aria-label="Optional location map"></div>
+<div class="table"><table><thead><tr><th>Observed</th><th>Candidate</th><th>Source</th><th>Confidence</th><th>Repeated</th><th>Location</th><th>Reason</th></tr></thead><tbody id="events"></tbody></table></div></main>
 <script type="module" src="/src.js"></script></body></html>

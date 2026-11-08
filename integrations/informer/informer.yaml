@@ -3,3 +3,6 @@ roles:
   - id: viewer
     name: Viewer
     description: Review model-generated hazard candidates
+env:
+  AHEAD_WEBHOOK_SECRET:
+    description: Shared HMAC secret used to authenticate the AHEAD sender

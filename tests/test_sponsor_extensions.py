@@ -57,6 +57,9 @@ def test_dataset_split_has_no_scene_overlap(tmp_path):
             "image": "scene.jpg",
             "question": "what is ahead",
             "answer": "Scene uncertain. Hold position.",
+            "source_url": "https://example.test/source",
+            "license": "CC0",
+            "derivation": "test fixture",
         }
         for i in range(5)
     ]

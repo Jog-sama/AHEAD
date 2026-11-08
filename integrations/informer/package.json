@@ -1,5 +1,5 @@
 {
-  "name": "tactilevector-hazards",
+  "name": "ahead-hazard-review",
   "private": true,
   "type": "module",
   "version": "0.2.0",
@@ -19,7 +19,7 @@
     "@entrinsik/vite-plugin-informer": "2.14.0"
   },
   "informer": {
-    "name": "TactileVector Hazard Review",
-    "description": "Candidate obstacles for human review; no ADA compliance determinations"
+    "name": "AHEAD Hazard Review",
+    "description": "Deduplicated AHEAD hazard candidates, summaries and optional location review"
   }
 }

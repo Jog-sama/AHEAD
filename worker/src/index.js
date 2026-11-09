@@ -5,6 +5,8 @@
 // numbers are stripped here, and a crossing verdict is never given: the model
 // cannot see traffic well enough and a wrong "go" costs a life.
 
+import { betaRequest, betaOwner } from "./beta.js";
+
 const MODEL = "claude-opus-5-5";
 const TIMEOUT_MS = 8000;
 const MAX_WORDS = 25;
@@ -445,6 +447,11 @@ export default {
     if (path === "/enroll" && request.method === "POST") return enroll(request, env, headers);
     if (path.startsWith("/enroll/") && request.method === "GET") return enrollStatus(path.slice("/enroll/".length), env, headers);
     if (path === "/devices" || path.startsWith("/devices/")) return devices(request, env, path, headers);
+    if (path === "/beta" && request.method === "POST") return betaRequest(request, env, headers, json);
+    if (path === "/beta/list" || path === "/beta/flush") {
+      if (!checkToken(request.headers.get("Authorization"), env.OWNER_TOKEN)) return json({ error: "unauthorized" }, 401, headers);
+      return betaOwner(request, env, path, headers, json);
+    }
     if (path !== "/") return json({ error: "not found" }, 404, headers);
     if (request.method !== "POST") return json({ error: "POST only" }, 405, headers);
 

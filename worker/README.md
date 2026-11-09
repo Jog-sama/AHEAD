@@ -60,12 +60,23 @@ Response, always JSON: `{answer, abstain, reason?}`. `answer` is at most 25 word
 CORS: `https://jonasneves.com` and `null` (the page bundled in the app), with `OPTIONS`. Add an origin to
 `ALLOWED_ORIGINS` in `src/index.js`.
 
+## Beta requests
+
+`POST /beta` from the form at jonasneves.com/bridge/ahead/beta/ (`site/beta/index.html`): `{email, device, role, consent: true, source?, token?}`. `device` is one of the LiDAR iPhones in `DEVICES` (`src/beta.js`) or `no-lidar`; `role` is `cane` or `helper`. The row goes into D1 (`ahead-beta`, binding `BETA`, schema in `migrations/`), then the Worker asks App Store Connect to add the email to the external group named `ASC_GROUP_NAME` of app `ASC_APP_ID` (both in `wrangler.jsonc`), so Apple sends the TestFlight invitation and App Store Connect's tester list stays the source of truth. A tester Apple already knows (409) is added to the group by id. A phone without LiDAR is stored as `no-lidar` and no invitation is asked for.
+
+The answer is `{status}`: `invited`, `queued` (no ASC key yet, or Apple refused; the row stays and `error` holds Apple's message), or `no-lidar`; a refused field is 400 `{error: <field>, message}` with a sentence the page reads aloud. The same email asked twice is one row. Five requests an hour per address (429); only a hash of the address is kept, two hours, in the `DEVICES` KV. If `TURNSTILE_SECRET` is set, `token` must pass Cloudflare Turnstile's siteverify; unset, the form relies on the rate limit alone.
+
+Owner only (`Authorization: Bearer <OWNER_TOKEN>`): `GET /beta/list`, `POST /beta/flush` (sends every `queued` or `failed` row once the ASC key exists). `./beta.sh list | flush` wraps both.
+
+Secrets, set with `npx wrangler secret put`: `ASC_KEY_ID` (the key's id), `ASC_ISSUER_ID` (App Store Connect › Users and Access › Integrations), `ASC_PRIVATE_KEY` (the whole text of the downloaded `AuthKey_<id>.p8`; Apple lets it be downloaded once), and optionally `TURNSTILE_SECRET`. The key's role needs access to TestFlight testers (App Manager). Apple's token rules (ES256, `aud` `appstoreconnect-v1`, at most 20 minutes) are what `ascToken` follows; the request body of `POST /v1/betaTesters` is the JSON:API shape and had not been run against Apple at the time of writing, so the first real request is the check (`./beta.sh list` shows a refusal's message).
+
 ## Deploy
 
 ```sh
 npm test                                   # the guardrails, no network
 npx wrangler secret put ANTHROPIC_API_KEY  # a key from platform.claude.com
 npx wrangler secret put OWNER_TOKEN        # e.g. openssl rand -hex 24; the owner's, for devices.sh and curl, never a phone's
+npx wrangler d1 migrations apply ahead-beta --remote   # once, and after a new file in migrations/
 npx wrangler deploy
 ```
 

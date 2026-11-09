@@ -107,15 +107,20 @@ export function checkToken(header, secret) {
   return m ? sameToken(m[1], secret) : false;
 }
 
-// Devices: a phone makes a P-256 key on first launch and enrolls its public half with a name; the owner approves the
-// device once (POST /devices/<id> with the owner token), and from then on the phone signs each request, so no secret
-// is typed into or shipped with the app, and one phone is revoked without touching the others. KV: `pending:<id>` and
-// `device:<id>` hold {name, key, since}; `use:<id>:<day>` counts the day's asks.
+// Devices: a phone makes a P-256 key on first launch and enrolls its public half with a name; the Worker approves it
+// at once, and from then on the phone signs each request, so no secret is typed into or shipped with the app. What
+// stands between a stranger and the model's bill is the limits: a per-device and a global daily count (DEVICE_DAY_CAP,
+// GLOBAL_DAY_CAP), a cap on enrollments per address and per day, and the owner's block list. KV: `device:<id>` holds
+// {name, key, fp, since}; `block:<id>` marks an id the owner turned off; `use:<id>:<day>` counts the day's asks,
+// `use:all:<day>` all asks, `enrolled:<day>` and `rl:enroll:<hash>:<hour>` the enrollments.
 const DEVICE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SKEW_MS = 60_000;
-const DAY_CAP = 300;
-const PENDING_TTL_S = 3600;  // approval happens with the phone in hand; the page re-enrolls while it waits
-const PENDING_MAX = 20;
+const DEVICE_DAY_CAP = 40;    // asks per phone per day when env.DEVICE_DAY_CAP is unset
+const GLOBAL_DAY_CAP = 1000;  // asks per day over all phones when env.GLOBAL_DAY_CAP is unset
+const ENROLL_DAY_CAP = 500;   // new phones per day
+const ENROLL_HOUR_PER_IP = 10;
+
+const limit = (value, fallback) => (Number.isFinite(Number(value)) && Number(value) >= 0 && value !== undefined && value !== "" ? Number(value) : fallback);
 
 const fromB64url = (s) => Uint8Array.from(atob(String(s).replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -126,8 +131,8 @@ export function publicJwk(key) {
   return { kty: "EC", crv: "P-256", x: key.x, y: key.y };
 }
 
-// Eight hex characters of the key, shown on the phone and in the owner's list, so the owner approves the phone in
-// hand and not one that enrolled with the same name.
+// Eight hex characters of the key, shown on the phone and in the owner's list, so the owner can tell two phones with
+// the same name apart before blocking one.
 export const fingerprint = async (key) => (await sha256(`${key.x}.${key.y}`)).slice(0, 8);
 
 export async function verifySignature(jwk, message, signature) {
@@ -161,57 +166,55 @@ async function enroll(request, env, headers) {
   const key = publicJwk(body?.key);
   const name = String(body?.name || "").replace(/[^\P{C}]/gu, "").trim().slice(0, 40) || "a phone";
   if (!DEVICE_ID.test(id) || !key) return json({ error: "bad request" }, 400, headers);
+  if (await env.DEVICES.get(`block:${id}`)) return json({ status: "blocked" }, 403, headers);
   const fp = await fingerprint(key);
   // An id already bound to another key is refused, never rebound: a phone whose store lost its key makes a new id.
-  const sameKey = (d) => d && d.key.x === key.x && d.key.y === key.y;
-  const approved = await env.DEVICES.get(`device:${id}`, "json");
-  if (approved) return sameKey(approved) ? json({ status: "approved", fp }, 200, headers) : json({ error: "id taken" }, 409, headers);
-  const pending = await env.DEVICES.get(`pending:${id}`, "json");
-  if (pending && !sameKey(pending)) return json({ error: "id taken" }, 409, headers);
-  if (!pending) {
-    if ((await env.DEVICES.list({ prefix: "pending:", limit: PENDING_MAX })).keys.length >= PENDING_MAX) return json({ error: "try later" }, 429, headers);
-    await env.DEVICES.put(`pending:${id}`, JSON.stringify({ name, key, fp, since: Date.now() }), { expirationTtl: PENDING_TTL_S });
-  }
-  return json({ status: "pending", fp }, 200, headers);
+  const known = await env.DEVICES.get(`device:${id}`, "json");
+  if (known) return known.key.x === key.x && known.key.y === key.y ? json({ status: "approved", fp }, 200, headers) : json({ error: "id taken" }, 409, headers);
+  const today = `enrolled:${day()}`;
+  const enrolledToday = Number(await env.DEVICES.get(today)) || 0;
+  const ipKey = `rl:enroll:${(await sha256(request.headers.get("CF-Connecting-IP") || "unknown")).slice(0, 16)}:${Math.floor(Date.now() / 3_600_000)}`;
+  const fromIp = Number(await env.DEVICES.get(ipKey)) || 0;
+  if (enrolledToday >= limit(env.ENROLL_DAY_CAP, ENROLL_DAY_CAP) || fromIp >= ENROLL_HOUR_PER_IP) return json({ error: "try later" }, 429, headers);
+  await env.DEVICES.put(ipKey, String(fromIp + 1), { expirationTtl: 7200 });
+  await env.DEVICES.put(today, String(enrolledToday + 1), { expirationTtl: 2 * 86400 });
+  await env.DEVICES.put(`device:${id}`, JSON.stringify({ name, key, fp, since: Date.now() }));
+  return json({ status: "approved", fp }, 200, headers);
 }
 
 async function enrollStatus(id, env, headers) {
   if (!DEVICE_ID.test(id)) return json({ status: "unknown" }, 404, headers);
+  if (await env.DEVICES.get(`block:${id}`)) return json({ status: "blocked" }, 200, headers);
   if (await env.DEVICES.get(`device:${id}`)) return json({ status: "approved" }, 200, headers);
-  if (await env.DEVICES.get(`pending:${id}`)) return json({ status: "pending" }, 200, headers);
   return json({ status: "unknown" }, 404, headers);
 }
 
-// The owner's view and switch: GET /devices lists both sets, POST /devices/<id> approves, DELETE /devices/<id> revokes.
+// The owner's view and switch: GET /devices lists phones, blocked ids and today's counts; DELETE /devices/<id> blocks
+// a phone (its key is removed and its id refused when it enrolls again); POST /devices/<id> lifts a block.
 async function devices(request, env, path, headers) {
   if (!checkToken(request.headers.get("Authorization"), env.OWNER_TOKEN)) return json({ error: "unauthorized" }, 401, headers);
   const id = path.slice("/devices/".length);
   if (path === "/devices" && request.method === "GET") {
-    const read = async (prefix) => {
-      const { keys } = await env.DEVICES.list({ prefix });
-      return Promise.all(
-        keys.map(async ({ name }) => {
-          const id = name.slice(prefix.length);
-          const d = await env.DEVICES.get(name, "json");
-          const today = prefix === "device:" ? Number(await env.DEVICES.get(`use:${id}:${day()}`)) || 0 : undefined;
-          return { id, name: d?.name, fp: d?.fp, since: d?.since, today };
-        }),
-      );
-    };
-    return json({ approved: await read("device:"), pending: await read("pending:") }, 200, headers);
+    const { keys } = await env.DEVICES.list({ prefix: "device:" });
+    const approved = await Promise.all(
+      keys.map(async ({ name }) => {
+        const id = name.slice("device:".length);
+        const d = await env.DEVICES.get(name, "json");
+        return { id, name: d?.name, fp: d?.fp, since: d?.since, today: Number(await env.DEVICES.get(`use:${id}:${day()}`)) || 0 };
+      }),
+    );
+    const blocked = (await env.DEVICES.list({ prefix: "block:" })).keys.map(({ name }) => name.slice("block:".length));
+    return json({ approved, blocked, today: Number(await env.DEVICES.get(`use:all:${day()}`)) || 0, enrolled: Number(await env.DEVICES.get(`enrolled:${day()}`)) || 0 }, 200, headers);
   }
   if (!DEVICE_ID.test(id)) return json({ error: "no such device" }, 404, headers);
-  if (request.method === "POST") {
-    const p = await env.DEVICES.get(`pending:${id}`, "json");
-    if (!p) return (await env.DEVICES.get(`device:${id}`)) ? json({ status: "approved" }, 200, headers) : json({ error: "no such device" }, 404, headers);
-    await env.DEVICES.put(`device:${id}`, JSON.stringify({ ...p, since: Date.now() }));
-    await env.DEVICES.delete(`pending:${id}`);
-    return json({ status: "approved", name: p.name }, 200, headers);
-  }
   if (request.method === "DELETE") {
     await env.DEVICES.delete(`device:${id}`);
-    await env.DEVICES.delete(`pending:${id}`);
-    return json({ status: "revoked" }, 200, headers);
+    await env.DEVICES.put(`block:${id}`, "1");
+    return json({ status: "blocked" }, 200, headers);
+  }
+  if (request.method === "POST") {
+    await env.DEVICES.delete(`block:${id}`);
+    return json({ status: "unblocked" }, 200, headers);
   }
   return json({ error: "GET, POST or DELETE" }, 405, headers);
 }
@@ -378,6 +381,13 @@ export class Mirror {
         const d = hello.device;
         this.queued.set(ws, []);
         ok = Boolean(await signedBy(this.env, d.id, d.time, d.sig, `mirror.${state.code}.${d.time}`));
+        // Phones enroll without a person's approval, so a room belongs to the first device that opens it: another
+        // device that guessed the code cannot send into it. The owner token is not bound.
+        if (ok) {
+          const owner = await this.ctx.storage.get("device");
+          if (owner && owner !== d.id) ok = false;
+          else if (!owner) await this.ctx.storage.put("device", d.id);
+        }
       } else if (ok) ok = sameToken(hello.token, this.env.OWNER_TOKEN);
       const later = this.queued.get(ws) || [];
       this.queued.delete(ws);
@@ -461,14 +471,16 @@ export default {
     if (!who) {
       const h = (n) => request.headers.get(n) || "";
       const d = await signedBy(env, h("X-Device"), h("X-Time"), h("X-Signature"), `${h("X-Time")}.${await sha256(raw)}`);
-      if (!d) {
-        const pending = DEVICE_ID.test(h("X-Device")) && (await env.DEVICES.get(`pending:${h("X-Device")}`));
-        return json({ error: pending ? "pending approval" : "unauthorized" }, 401, headers);
-      }
+      if (!d) return json({ error: "unauthorized" }, 401, headers);
       const useKey = `use:${d.id}:${day()}`;
+      const allKey = `use:all:${day()}`;
       const used = Number(await env.DEVICES.get(useKey)) || 0;
-      if (used >= DAY_CAP) return json({ ...NO_ANSWER, reason: "daily limit" }, 429, headers);
+      const all = Number(await env.DEVICES.get(allKey)) || 0;
+      // The count can be passed by a few in a burst: cost control, not a fence.
+      if (used >= limit(env.DEVICE_DAY_CAP, DEVICE_DAY_CAP)) return json({ ...NO_ANSWER, reason: "daily limit" }, 429, headers);
+      if (all >= limit(env.GLOBAL_DAY_CAP, GLOBAL_DAY_CAP)) return json({ ...NO_ANSWER, reason: "global limit" }, 429, headers);
       await env.DEVICES.put(useKey, String(used + 1), { expirationTtl: 2 * 86400 });
+      await env.DEVICES.put(allKey, String(all + 1), { expirationTtl: 2 * 86400 });
       who = d.name;
     }
 

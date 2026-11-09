@@ -26,20 +26,33 @@ overwritten by LiDAR, an abstain flag, something spoken within a second.
 
 ## Contract
 
-`POST /` from an approved phone, or with `Authorization: Bearer <OWNER_TOKEN>`; anything else is 401.
+`POST /` from an enrolled phone, or with `Authorization: Bearer <OWNER_TOKEN>`; anything else is 401.
 
 A phone never holds a shared secret. On first launch the page makes a P-256 key that stays on the phone and sends
-`POST /enroll` `{id, name, key}` (UUID, phone name, public JWK). The answer is `{status: "pending", fp}` until the
-owner runs `./devices.sh approve <id>`; `list` shows each waiting phone with the same eight-character `fp` the phone
-shows, so the owner approves the phone in hand and not a stranger with the same name; `revoke <id>` removes one; the
-token comes from `.dev.vars`. A waiting entry lasts an hour, renewed by the page every 20 s, and twenty may wait, so a
-stranger filling the list locks enrollment out for an hour at most. `GET /enroll/<id>` answers the status. An approved
-phone signs each ask: headers `X-Device`, `X-Time` (ms) and `X-Signature`, ECDSA P-256 with SHA-256 over
-`<time>.<sha256 hex of the body>`, base64url; a time more than a minute off is refused; 300 asks a day per phone, then
-429 `reason: "daily limit"` (the KV count can be passed by a few in a burst: cost control, not a fence). A pending
-phone's ask is 401 `{error: "pending approval"}`, which the page shows. Keys and counts live in the `DEVICES` KV
-namespace. The mirror's phone proves itself with a signature over `mirror.<code>.<time>` or the owner token; a revoked
-phone's open mirror socket lasts until it closes.
+`POST /enroll` `{id, name, key}` (UUID, phone name, public JWK). The Worker approves it at once: `{status: "approved", fp}`.
+Approval is not a person's judgment; the limits are what bound the cost. Each ask is signed: headers `X-Device`,
+`X-Time` (ms) and `X-Signature`, ECDSA P-256 with SHA-256 over `<time>.<sha256 hex of the body>`, base64url; a time more
+than a minute off is refused. Limits, each read from `env` (a `vars` entry in `wrangler.jsonc` or a dashboard variable)
+with the default in `src/index.js`:
+
+| Variable | Default | Over it |
+| --- | --- | --- |
+| `DEVICE_DAY_CAP` | 40 asks a phone a day | 429 `reason: "daily limit"` |
+| `GLOBAL_DAY_CAP` | 1000 asks a day over all phones | 429 `reason: "global limit"` |
+| `ENROLL_DAY_CAP` | 500 new phones a day | `/enroll` 429 |
+| (fixed) | 10 enrollments an address an hour | `/enroll` 429 |
+
+The page speaks a plain sentence for each 429. The counts can be passed by a few in a burst: cost control, not a fence;
+they are in the `DEVICES` KV (`use:<id>:<day>`, `use:all:<day>`, `enrolled:<day>`), and only a hash of an address is
+kept, two hours. Anyone can enroll a key, so the model's reach is bounded by the global cap, not by who is asking;
+App Attest (Jog-sama/AHEAD#28) is the later proof that a key lives in the real app.
+
+The owner's switch is the block list: `./devices.sh list` shows each phone with today's count, today's totals and the
+blocked ids; `block <id>` removes the phone's key and refuses that id when it enrolls again; `unblock <id>` lifts it. A
+blocked phone that clears its app's storage makes a new id, so a block is for an honest phone, not for an attacker.
+The token comes from `.dev.vars`. `GET /enroll/<id>` answers `approved`, `blocked` or `unknown`. The mirror's phone
+proves itself with a signature over `mirror.<code>.<time>` or the owner token; a blocked phone's open mirror socket lasts
+until it closes.
 
 `GET /mirror/<code>` upgraded to a WebSocket is the demo mirror: the phone connects with `?role=send` and says
 `{type: "hello", token}` or `{type: "hello", device: {id, time, sig}}` within 5 s (else closed with 4001); a computer

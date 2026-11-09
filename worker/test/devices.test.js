@@ -46,7 +46,7 @@ async function phone() {
 }
 const owner = (path, method) => new Request(`https://ahead-ask.test${path}`, { method, headers: { ...ORIGIN, Authorization: "Bearer tok" } });
 
-test("a phone enrolls, waits, is approved by the owner, then its signed asks pass; a stranger's do not", async () => {
+test("a phone enrolls and is approved at once, its signed asks pass, a stranger's do not, a block turns it off", async () => {
   const env = { OWNER_TOKEN: "tok", ANTHROPIC_API_KEY: "key", DEVICES: kv() };
   const p = await phone();
 
@@ -56,27 +56,23 @@ test("a phone enrolls, waits, is approved by the owner, then its signed asks pas
 
   res = await worker.fetch(p.enroll(), env);
   const enrolled = await res.json();
-  assert.equal(enrolled.status, "pending");
+  assert.equal(enrolled.status, "approved");
   assert.match(enrolled.fp, /^[0-9a-f]{8}$/);
-  assert.equal(JSON.parse(env.DEVICES.m.get(`pending:${p.id}`)).key.d, undefined, "the private half is never stored");
+  assert.equal(JSON.parse(env.DEVICES.m.get(`device:${p.id}`)).key.d, undefined, "the private half is never stored");
   res = await worker.fetch(new Request(`https://ahead-ask.test/enroll/${p.id}`, { headers: ORIGIN }), env);
-  assert.deepEqual(await res.json(), { status: "pending" });
-  res = await worker.fetch(await p.ask({ image: PIXEL, question: "Can I cross?" }), env);
-  assert.equal(res.status, 401);
-  assert.deepEqual(await res.json(), { error: "pending approval" });
+  assert.deepEqual(await res.json(), { status: "approved" });
 
   res = await worker.fetch(owner("/devices", "GET"), env);
   const list = await res.json();
-  assert.equal(list.pending.length, 1);
-  assert.equal(list.pending[0].name, "Jonas's iPhone[31m", "the escape character is stripped, the rest of the name stays");
-  assert.equal(list.pending[0].fp, enrolled.fp);
-  res = await worker.fetch(owner(`/devices/${p.id}`, "POST"), env);
-  assert.deepEqual(await res.json(), { status: "approved", name: "Jonas's iPhone[31m" });
+  assert.equal(list.approved.length, 1);
+  assert.equal(list.approved[0].name, "Jonas's iPhone[31m", "the escape character is stripped, the rest of the name stays");
+  assert.equal(list.approved[0].fp, enrolled.fp);
 
   res = await worker.fetch(await p.ask({ image: PIXEL, question: "Can I cross?" }), env);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), CROSSING);
   assert.equal(env.DEVICES.m.get(`use:${p.id}:${new Date().toISOString().slice(0, 10)}`), "1");
+  assert.equal(env.DEVICES.m.get(`use:all:${new Date().toISOString().slice(0, 10)}`), "1");
 
   const other = await phone();
   const rebind = new Request("https://ahead-ask.test/enroll", { method: "POST", headers: ORIGIN, body: JSON.stringify({ id: p.id, name: "x", key: other.key }) });
@@ -91,27 +87,53 @@ test("a phone enrolls, waits, is approved by the owner, then its signed asks pas
   assert.equal((await worker.fetch(forged, env)).status, 401);
 
   res = await worker.fetch(owner(`/devices/${p.id}`, "DELETE"), env);
-  assert.deepEqual(await res.json(), { status: "revoked" });
+  assert.deepEqual(await res.json(), { status: "blocked" });
   assert.equal((await worker.fetch(await p.ask({ image: PIXEL, question: "Can I cross?" }), env)).status, 401);
+  res = await worker.fetch(p.enroll(), env);
+  assert.equal(res.status, 403, "a blocked id cannot enroll again");
+  assert.deepEqual(await res.json(), { status: "blocked" });
+  assert.deepEqual((await (await worker.fetch(owner("/devices", "GET"), env)).json()).blocked, [p.id]);
+  await worker.fetch(owner(`/devices/${p.id}`, "POST"), env);
+  assert.equal((await worker.fetch(p.enroll(), env)).status, 200, "unblocking lets it enroll again");
 });
 
-test("the owner routes need the owner token; a device over its daily cap is told so", async () => {
-  const env = { OWNER_TOKEN: "tok", ANTHROPIC_API_KEY: "key", DEVICES: kv() };
+test("the owner routes need the owner token; a phone over its daily quota, or all phones over the global cap, are told so", async () => {
+  const env = { OWNER_TOKEN: "tok", ANTHROPIC_API_KEY: "key", DEVICES: kv(), DEVICE_DAY_CAP: "2", GLOBAL_DAY_CAP: "3" };
   assert.equal((await worker.fetch(new Request("https://ahead-ask.test/devices", { headers: ORIGIN }), env)).status, 401);
-  const p = await phone();
+  const [p, q] = [await phone(), await phone()];
   await worker.fetch(p.enroll(), env);
-  await worker.fetch(owner(`/devices/${p.id}`, "POST"), env);
-  env.DEVICES.m.set(`use:${p.id}:${new Date().toISOString().slice(0, 10)}`, "300");
-  const res = await worker.fetch(await p.ask({ image: PIXEL, question: "Can I cross?" }), env);
+  await worker.fetch(q.enroll(), env);
+  const ask = async (who) => worker.fetch(await who.ask({ image: PIXEL, question: "Can I cross?" }), env);
+  assert.equal((await ask(p)).status, 200);
+  assert.equal((await ask(p)).status, 200);
+  let res = await ask(p);
   assert.equal(res.status, 429);
   assert.equal((await res.json()).reason, "daily limit");
+  assert.equal((await ask(q)).status, 200, "another phone still has its own quota");
+  res = await ask(q);
+  assert.equal(res.status, 429);
+  assert.equal((await res.json()).reason, "global limit");
+});
+
+test("enrolling is limited per address and per day", async () => {
+  const hdr = { ...ORIGIN, "CF-Connecting-IP": "198.51.100.9" };
+  const env = { OWNER_TOKEN: "tok", DEVICES: kv() };
+  const codes = [];
+  for (let i = 0; i < 11; i++) {
+    const p = await phone();
+    const req = p.enroll();
+    codes.push((await worker.fetch(new Request(req, { headers: hdr }), env)).status);
+  }
+  assert.deepEqual(codes, [...Array(10).fill(200), 429]);
+  const small = { OWNER_TOKEN: "tok", DEVICES: kv(), ENROLL_DAY_CAP: "1" };
+  assert.equal((await worker.fetch((await phone()).enroll(), small)).status, 200);
+  assert.equal((await worker.fetch((await phone()).enroll(), small)).status, 429);
 });
 
 test("the mirror accepts a device's signature over mirror.<time> in place of the owner token", async () => {
   const env = { OWNER_TOKEN: "tok", DEVICES: kv() };
   const p = await phone();
   await worker.fetch(p.enroll(), env);
-  await worker.fetch(owner(`/devices/${p.id}`, "POST"), env);
   const sockets = [];
   const ctx = { acceptWebSocket: (ws, tags) => sockets.push(Object.assign(ws, { tags })), getWebSockets: (tag) => sockets.filter((w) => w.open && w.tags.includes(tag)), getTags: (ws) => ws.tags };
   const m = new Mirror(ctx, env);

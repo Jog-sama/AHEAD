@@ -179,7 +179,7 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
   <div class=row><label for=cloud-url>Cloud</label><input id=cloud-url type=url inputmode=url autocapitalize=off autocorrect=off spellcheck=false placeholder="https://…"></div>
   <div class=pad><p class=stat role=status id=cloud-stat>Cloud: off. Questions are answered on the phone.</p></div>
 </section>
-<p class="foot phone-only">Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound under 1 m plays a short tone with each fast pulse, none for slow ones, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone asks the cloud once to be approved; after that a question, the photo and the depth go to it, nothing else.</p>
+<p class="foot phone-only">Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound under 1 m plays a short tone with each fast pulse, none for slow ones, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone registers once with the cloud; after that a question, the photo and the depth go to it, nothing else.</p>
 
 <div id=computer>
 <h2 class=phone-only>Computer</h2>
@@ -596,8 +596,8 @@ if(has){
 
 // ── Push to ask ──────────────────────────────────────────────────────────────────────────────────────────────────
 // This phone holds a P-256 key that never leaves it and an id, together in one IndexedDB record (the CryptoKey is not
-// extractable). On first launch it enrolls the public half with the cloud; the owner approves the phone once, and every
-// ask after that is signed over the time and the body. No secret is typed or shipped. A store that lost the record
+// extractable). On first launch it enrolls the public half with the cloud, which approves it at once within its daily limits, and
+// every ask after that is signed over the time and the body. No secret is typed or shipped. A store that lost the record
 // means a new id and a new approval, never an old id with a new key.
 const cloud={url:store.get('ahead.cloud.url')||'https://ahead-ask.jonasneves.workers.dev/',status:'off',fp:''};
 const cloudOn=()=>cloud.status==='approved';
@@ -632,7 +632,7 @@ function cloudStatus(){
   $('cloud-stat').textContent=
     cloud.url&&!/^https:\/\//.test(cloud.url)?'Cloud: off. The endpoint must start with https://.'
     :cloud.status==='approved'?`Cloud: on, ${host}.`
-    :cloud.status==='pending'?`Cloud: waiting for this phone to be approved${cloud.fp?', code '+cloud.fp:''}. Questions are answered on the phone.`
+    :cloud.status==='blocked'?'Cloud: this phone has been turned off. Questions are answered on the phone.'
     :cloud.status==='error'?'Cloud: unreachable. Questions are answered on the phone.'
     :'Cloud: off. Questions are answered on the phone.';
 }
@@ -644,10 +644,10 @@ async function enroll(){
     let name='iPhone';try{name=(await call('device.info')).name||name}catch{}
     const r=await fetch(new URL('enroll',cloud.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:d.id,name,key:d.publicJwk})});
     if(r.status===409){await loadDevice(true);return enroll()}   // the id belongs to a key this phone no longer has
-    const j=r.ok?await r.json():{};cloud.status=j.status||'error';cloud.fp=j.fp||'';
+    const j=r.ok||r.status===403?await r.json().catch(()=>({})):{};cloud.status=j.status||'error';cloud.fp=j.fp||'';
   }catch{cloud.status='error'}
   cloudStatus();
-  if(cloud.status!=='approved')enrollTimer=setTimeout(enroll,cloud.status==='pending'?20000:60000);
+  if(cloud.status!=='approved'&&cloud.status!=='blocked')enrollTimer=setTimeout(enroll,60000);
 }
 $('cloud-url').value=cloud.url;cloudStatus();
 sideOn=store.get('ahead.side')==='1';$('side').checked=sideOn;
@@ -944,14 +944,14 @@ function mirrorOpen(){
   ws.onclose=e=>{
     if(mirror.ws!==ws)return;
     mirror.ws=null;
-    if(e.code===4001){mirrorStop();mirrorStatus('The cloud has not approved this phone.',true);return}
+    if(e.code===4001){mirrorStop();mirrorStatus('The cloud does not accept this phone.',true);return}
     if(!mirror.on)return;
     mirrorStatus(`Code ${mirror.code}. Reconnecting…`);
     mirror.retry=setTimeout(mirrorOpen,mirror.wait);mirror.wait=Math.min(mirror.wait*2,8000);
   };
 }
 function mirrorStart(){
-  if(!cloudOn())return mirrorStatus('The cloud has not approved this phone yet.',true);
+  if(!cloudOn())return mirrorStatus('The cloud has not accepted this phone yet.',true);
   mirror.on=true;mirror.wait=1000;store.set('ahead.mirror.on','1');
   mirrorStatus(`Code ${mirror.code}. Connecting…`);mirrorOpen();
 }
@@ -1046,8 +1046,13 @@ async function cloudAsk(image,question){
   try{
     const raw=JSON.stringify({image,corridor:lastCorridor,question});
     const r=await fetch(cloud.url,{method:'POST',headers:{...await signed(raw),'Content-Type':'application/json'},body:raw,signal:ctl.signal});
-    if(r.status===401){cloud.status='off';enroll();throw new Error('this phone is not approved for the cloud')}
-    if(r.status===429)throw new Error("today's cloud limit is used up");
+    if(r.status===401){cloud.status='off';enroll();throw new Error('this phone is not registered with the cloud')}
+    if(r.status===429){
+      const j=await r.json().catch(()=>({}));
+      throw Object.assign(new Error(j.reason==='global limit'
+        ?'Questions to the cloud are paused for today because many people are asking. The depth cue and the cane still work.'
+        :"You have used today's cloud questions. The depth cue and the cane still work, and questions come back tomorrow."),{spoken:true});
+    }
     if(!r.ok)throw new Error('the cloud answered '+r.status);
     const j=await r.json();
     if(typeof j!=='object'||j===null||(typeof j.answer!=='string'&&!j.abstain))throw new Error('the cloud answer has no answer field');
@@ -1076,7 +1081,7 @@ async function answer(question,src,photo){
       if(line)s+=` Sign reads: ${line}.`;
       add(s);
     }
-  }catch(e){add('Could not look. '+msg(e))}
+  }catch(e){add(e.spoken?e.message:'Could not look. '+msg(e))}
   const ms=Date.now()-t;
   note('ask',{src:source,ms,text:(question?`Q: ${question} | `:'')+spoken});
   show('ask',spoken);

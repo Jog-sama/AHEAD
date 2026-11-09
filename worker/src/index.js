@@ -131,8 +131,8 @@ export function publicJwk(key) {
   return { kty: "EC", crv: "P-256", x: key.x, y: key.y };
 }
 
-// Eight hex characters of the key, shown on the phone and in the owner's list, so the owner approves the phone in
-// hand and not one that enrolled with the same name.
+// Eight hex characters of the key, shown on the phone and in the owner's list, so the owner can tell two phones with
+// the same name apart before blocking one.
 export const fingerprint = async (key) => (await sha256(`${key.x}.${key.y}`)).slice(0, 8);
 
 export async function verifySignature(jwk, message, signature) {

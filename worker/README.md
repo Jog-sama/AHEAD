@@ -1,6 +1,6 @@
 # Ahead, ask
 
-A Cloudflare Worker behind the "ask" button of the Ahead page (`phone-bridge`, `docs/ahead/index.html`). The phone sends one photo and
+A Cloudflare Worker behind the "ask" button of the Ahead page (`ios/Ahead/index.html`). The phone sends one photo and
 its LiDAR corridor; the Worker asks Claude and returns one or two speakable sentences. The cane finds the ground; the
 page's haptics cover chest and head height from LiDAR; this is for the question the sensors cannot answer: what is
 that, what does the sign say.
@@ -42,7 +42,7 @@ with the default in `src/index.js`:
 | `ENROLL_DAY_CAP` | 500 new phones a day | `/enroll` 429 |
 | (fixed) | 10 enrollments an address an hour | `/enroll` 429 |
 
-The page speaks a plain sentence for each 429. The counts can be passed by a few in a burst: cost control, not a fence;
+The page speaks a plain sentence for each ask 429; an `/enroll` 429 is retried silently. The counts can be passed by a few in a burst: cost control, not a fence;
 they are in the `DEVICES` KV (`use:<id>:<day>`, `use:all:<day>`, `enrolled:<day>`), and only a hash of an address is
 kept, two hours. Anyone can enroll a key, so the model's reach is bounded by the global cap, not by who is asking;
 App Attest (Jog-sama/AHEAD#28) is the later proof that a key lives in the real app.
@@ -75,9 +75,9 @@ CORS: `https://jonasneves.com` and `null` (the page bundled in the app), with `O
 
 ## Beta requests
 
-`POST /beta` from the form at jonasneves.com/bridge/ahead/beta/ (`site/beta/index.html`): `{email, device, role, consent: true, source?, token?}`. `device` is one of the LiDAR iPhones in `DEVICES` (`src/beta.js`) or `no-lidar`; `role` is `cane` or `helper`. The row goes into D1 (`ahead-beta`, binding `BETA`, schema in `migrations/`), then the Worker asks App Store Connect to add the email to the external group named `ASC_GROUP_NAME` of app `ASC_APP_ID` (both in `wrangler.jsonc`), so Apple sends the TestFlight invitation and App Store Connect's tester list stays the source of truth. A tester Apple already knows (409) is added to the group by id. A phone without LiDAR is stored as `no-lidar` and no invitation is asked for.
+`POST /beta` from the form at jonasneves.com/bridge/ahead/beta/ (`site/beta/index.html`): `{email, device, role, consent: true, source?, token?}`. `device` is a key of the model table `DEVICES` exported by `src/beta.js` (not the KV): a LiDAR iPhone or `no-lidar`; `role` is `cane` or `helper`. The row goes into D1 (`ahead-beta`, binding `BETA`, schema in `migrations/`), then the Worker asks App Store Connect to add the email to the external group named `ASC_GROUP_NAME` of app `ASC_APP_ID` (both in `wrangler.jsonc`), so Apple sends the TestFlight invitation and App Store Connect's tester list stays the source of truth. A tester Apple already knows (409) is added to the group by id. A phone without LiDAR is stored as `no-lidar` and no invitation is asked for.
 
-The answer is `{status}`: `invited`, `queued` (no ASC key yet, or Apple refused; the row stays and `error` holds Apple's message), or `no-lidar`; a refused field is 400 `{error: <field>, message}` with a sentence the page reads aloud. The same email asked twice is one row. Five requests an hour per address (429); only a hash of the address is kept, two hours, in the `DEVICES` KV. If `TURNSTILE_SECRET` is set, `token` must pass Cloudflare Turnstile's siteverify; unset, the form relies on the rate limit alone.
+The answer is `{status}`: `invited`, `queued` (no ASC key yet, or Apple refused; on a refusal the row is stored as `failed` with Apple's message in `error`), or `no-lidar`; a refused field is 400 `{error: <field>, message}` with a sentence the page reads aloud. The same email asked twice is one row. Five requests an hour per address (429); only a hash of the address is kept, two hours, in the `DEVICES` KV. If `TURNSTILE_SECRET` is set, `token` must pass Cloudflare Turnstile's siteverify; unset, the form relies on the rate limit alone.
 
 Owner only (`Authorization: Bearer <OWNER_TOKEN>`): `GET /beta/list`, `POST /beta/flush` (sends every `queued` or `failed` row once the ASC key exists). `./beta.sh list | flush` wraps both.
 

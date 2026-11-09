@@ -5,7 +5,7 @@
 <meta name="color-scheme" content="light dark">
 <title>Join the Ahead beta</title>
 <style>
-:root{color-scheme:light dark;--bg:light-dark(#f2f2f7,#000);--card:light-dark(#fff,#1c1c1e);--text:light-dark(#000,#fff);--dim:light-dark(#595959,#a1a1a6);--line:light-dark(#8e8e93,#8e8e93);--blue:light-dark(#0062cc,#4da3ff);--err:light-dark(#b3261e,#ff8a80)}
+:root{color-scheme:light dark;--bg:light-dark(#f2f2f7,#000);--card:light-dark(#fff,#1c1c1e);--text:light-dark(#000,#fff);--dim:light-dark(#595959,#a1a1a6);--line:light-dark(#6e6e73,#8e8e93);--blue:light-dark(#0062cc,#4da3ff);--err:light-dark(#b3261e,#ff8a80)}
 body{margin:0;background:var(--bg);color:var(--text);font:17px/1.45 -apple-system,system-ui,sans-serif;-webkit-text-size-adjust:100%}
 main{max-width:34rem;margin:0 auto;padding:1rem 1rem 3rem}
 h1{font-size:2rem;line-height:1.2;margin:1rem 0 .5rem}
@@ -14,14 +14,15 @@ p{margin:.5rem 0}
 label,legend{display:block;font-weight:600;margin:1.5rem 0 .25rem;padding:0}
 fieldset{border:0;margin:0;padding:0}
 input[type=email],select{width:100%;box-sizing:border-box;min-height:48px;padding:.5rem .75rem;font:inherit;color:var(--text);background:var(--card);border:2px solid var(--line);border-radius:10px}
-.choice{display:flex;align-items:flex-start;gap:.75rem;min-height:48px;padding:.4rem 0}
-.choice input{flex:none;width:24px;height:24px;margin:.35rem 0 0}
-.choice label{margin:0;font-weight:400}
-button{width:100%;min-height:52px;margin-top:1.5rem;font:inherit;font-weight:600;color:#fff;background:var(--blue);border:0;border-radius:12px;cursor:pointer}
-button[disabled]{opacity:.6}
+.choice{display:flex;align-items:flex-start;gap:.75rem;min-height:48px}
+.choice input{flex:none;width:24px;height:24px;margin:.6rem 0 0}
+.choice label{margin:0;font-weight:400;min-height:48px;padding:.4rem 0;flex:1;box-sizing:border-box}
+button{width:100%;min-height:52px;margin-top:1.5rem;font:inherit;font-weight:600;color:light-dark(#fff,#000);background:var(--blue);border:0;border-radius:12px;cursor:pointer}
+button[aria-disabled=true]{opacity:.6}
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 .msg{margin-top:1.5rem;padding:1rem;border-radius:10px;background:var(--card);border:2px solid var(--line)}
 .msg:empty{display:none}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .msg.err{border-color:var(--err)}
 .msg h2{font-size:1.1rem;margin:0 0 .25rem}
 .hint{font-weight:400;color:var(--dim);margin:0 0 .5rem}
@@ -32,14 +33,15 @@ a{color:var(--blue)}
 <p>Ahead is an iPhone app for people who walk with a white cane. It reads what is at chest and head height with the phone's LiDAR and tells you through vibration, and it answers a spoken question about a photo. It is in a beta: it has not been walked by many people yet, and it never replaces your cane.</p>
 <p>Ahead needs an iPhone with a LiDAR sensor. If you help someone who uses a cane, fill this in for their phone.</p>
 
-<form id="f" novalidate aria-describedby="top">
+<form id="f" method="post" novalidate>
+  <noscript><p class="msg err">This form needs JavaScript. Without it, ask for an invitation on the <a href="../support/">support page</a>.</p></noscript>
   <label for="email">Email address</label>
-  <p class="hint" id="email-hint">Apple sends the TestFlight invitation to this address.</p>
-  <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="email-hint">
+  <p class="hint" id="email-hint">Use the email of the Apple Account on the iPhone that will run Ahead; Apple sends the TestFlight invitation there. If you are helping someone, use their address.</p>
+  <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="email-hint" data-d="email-hint">
 
   <label for="device">iPhone model</label>
   <p class="hint" id="device-hint">These iPhones have LiDAR: 12 Pro and Pro Max, 13 Pro and Pro Max, 14 Pro and Pro Max, 15 Pro and Pro Max, 16 Pro and Pro Max, 17 Pro and Pro Max. The iPhone Air, the standard models and the SE do not.</p>
-  <select id="device" name="device" required aria-describedby="device-hint">
+  <select id="device" name="device" required aria-describedby="device-hint" data-d="device-hint">
     <option value="">Choose a model</option>
     <option value="iphone-17-pro-max">iPhone 17 Pro Max</option>
     <option value="iphone-17-pro">iPhone 17 Pro</option>
@@ -57,14 +59,14 @@ a{color:var(--blue)}
   </select>
 
   <fieldset>
-    <legend>Who is this for?</legend>
-    <div class="choice"><input type="radio" id="role-cane" name="role" value="cane"><label for="role-cane">I use a white cane</label></div>
-    <div class="choice"><input type="radio" id="role-helper" name="role" value="helper"><label for="role-helper">I help someone who uses a white cane</label></div>
+    <legend>Who is this for? (required)</legend>
+    <div class="choice"><input type="radio" id="role-cane" name="role" value="cane" required data-d=""><label for="role-cane">I use a white cane</label></div>
+    <div class="choice"><input type="radio" id="role-helper" name="role" value="helper" required><label for="role-helper">I help someone who uses a white cane</label></div>
   </fieldset>
 
   <div class="choice" style="margin-top:1.5rem">
-    <input type="checkbox" id="consent" name="consent" required aria-describedby="consent-hint">
-    <label for="consent">I understand that Apple will email me a TestFlight invitation, and that my email and answers are kept only to manage the beta.</label>
+    <input type="checkbox" id="consent" name="consent" required aria-describedby="consent-hint" data-d="consent-hint">
+    <label for="consent">I understand that, if my iPhone can run Ahead, Apple will email me a TestFlight invitation, and that my email and answers are kept only to manage the beta.</label>
   </div>
   <p class="hint" id="consent-hint">Details are in the <a href="../privacy/">privacy policy</a>.</p>
 
@@ -72,8 +74,9 @@ a{color:var(--blue)}
   <button type="submit" id="go">Request an invitation</button>
 </form>
 
-<div id="msg" class="msg" role="status" aria-live="polite" tabindex="-1"></div>
-<p class="dim">Questions: <a href="../support/">support</a>.</p>
+<div id="msg" class="msg"></div>
+<p id="sending" class="vh" role="status"></p>
+<p class="dim"><a href="../support/">Contact and help</a>, and <a href="../privacy/">what happens to your email</a>.</p>
 </main>
 <script>
 const API = "https://ahead-ask.jonasneves.workers.dev/beta";
@@ -87,35 +90,48 @@ if (TURNSTILE_SITE_KEY) {
   s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstile&render=explicit";
   document.head.append(s);
 }
-function show(title, text, err) {
+const ids = { email: "email", device: "device", role: "role-cane", consent: "consent" };
+function show(title, text, err, field) {
   const m = $("msg");
   m.className = "msg" + (err ? " err" : "");
   m.replaceChildren();
-  const h = document.createElement("h2"); h.textContent = title;
-  const p = document.createElement("p"); p.textContent = text;
+  const h = document.createElement("h2"); h.textContent = title; h.tabIndex = -1; h.id = "msg-title";
+  const p = document.createElement("p"); p.id = "msg-text"; p.textContent = text;
   m.append(h, p);
-  m.focus();   // VoiceOver reads the message where focus lands
+  for (const f of Object.values(ids)) $(f).removeAttribute("aria-invalid");
+  if (field) {
+    // The error is tied to its field and focus goes to the field once; VoiceOver reads the field with its error.
+    const el = $(ids[field]);
+    el.setAttribute("aria-invalid", "true");
+    el.setAttribute("aria-describedby", (el.getAttribute("data-d") || el.getAttribute("aria-describedby") || "").split(" ").filter((x) => x !== "msg-text").concat("msg-text").join(" ").trim());
+    el.focus();
+  } else h.focus();   // a result: focus the heading, which VoiceOver then reads with the text after it
 }
 $("f").addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = $("email").value.trim(), device = $("device").value;
   const role = document.querySelector("input[name=role]:checked")?.value, consent = $("consent").checked;
-  const problem = !email ? ["email", "Enter your email address."]
+  const problem = !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? ["email", "Enter your email address, such as name@example.com."]
     : !device ? ["device", "Choose your iPhone model."]
-    : !role ? ["role-cane", "Say whether you use a white cane or help someone who does."]
+    : !role ? ["role", "Say whether you use a white cane or help someone who does."]
     : !consent ? ["consent", "Tick the box to confirm you understand how your email is used."] : null;
-  if (problem) { show("One thing to fix", problem[1], true); setTimeout(() => $(problem[0]).focus(), 50); return; }
-  $("go").disabled = true;
+  if (problem) return show("One thing to fix", problem[1], true, problem[0]);
+  if ($("go").getAttribute("aria-disabled") === "true") return;
+  $("go").setAttribute("aria-disabled", "true");
+  $("msg").replaceChildren();
+  $("sending").textContent = "Sending your request.";
   try {
     const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, device, role, consent, token, source: "beta-page" }) });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) show("The request did not go through", j.message || "Something went wrong on our side. Try again in a few minutes.", true);
-    else if (j.status === "no-lidar") show("This phone cannot run Ahead", "Ahead needs the LiDAR sensor in an iPhone 12 Pro or a later Pro model. No invitation was sent. Your request is kept only to count how many people asked.");
+    $("sending").textContent = "";
+    if (!r.ok) show("The request did not go through", j.message || "Something went wrong on our side. Try again in a few minutes.", true, ids[j.error] ? j.error : null);
+    else if (j.status === "no-lidar") show("This phone cannot run Ahead", "Ahead needs the LiDAR sensor in an iPhone 12 Pro or a later Pro model. No invitation was sent. Your email and answers are kept to manage the beta; you can ask for them to be deleted on the support page.");
     else if (j.status === "invited") show("Check your email", "Apple is sending a TestFlight invitation to " + email + ". It can take a few minutes, and it may be in your spam folder. Open it on the iPhone you want to use.");
     else show("Your request is in", "We have your request. The invitation from Apple comes after we add you to the beta, which can take a day or more. It will come from Apple's TestFlight to " + email + ".");
   } catch {
+    $("sending").textContent = "";
     show("The request did not go through", "The connection failed. Check your network and try again.", true);
-  } finally { $("go").disabled = false; }
+  } finally { $("go").removeAttribute("aria-disabled"); }
 });
 </script>
 </html>

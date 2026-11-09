@@ -30,13 +30,13 @@ a{color:var(--blue)}
 </style>
 <main>
 <h1 id="top">Join the Ahead beta</h1>
-<p>Ahead is an iPhone app for people who walk with a white cane. It reads what is at chest and head height with the phone's LiDAR and tells you through vibration, and it answers a spoken question about a photo. It is in a beta: it has not been walked by many people yet, and it never replaces your cane.</p>
+<p>Ahead is an iPhone app for people who walk with a white cane. It reads what is at chest and head height with the phone's LiDAR and tells you through vibration, and it answers a spoken question about a photo, which is sent to an AI service to answer. It is in a beta: only a few people have walked with it so far, and it never replaces your cane.</p>
 <p>Ahead needs an iPhone with a LiDAR sensor. If you help someone who uses a cane, fill this in for their phone.</p>
 
 <form id="f" method="post" novalidate>
   <noscript><p class="msg err">This form needs JavaScript. Without it, ask for an invitation on the <a href="../support/">support page</a>.</p></noscript>
   <label for="email">Email address</label>
-  <p class="hint" id="email-hint">Use the email of the Apple Account on the iPhone that will run Ahead; Apple sends the TestFlight invitation there. If you are helping someone, use their address.</p>
+  <p class="hint" id="email-hint">Use the email of the Apple Account on the iPhone that will run Ahead; Apple sends the invitation for TestFlight, its free app for trying apps before release, there. If you are helping someone, use their address.</p>
   <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required aria-describedby="email-hint" data-d="email-hint">
 
   <label for="device">iPhone model</label>
@@ -114,7 +114,7 @@ $("f").addEventListener("submit", async (e) => {
   const problem = !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ? ["email", "Enter your email address, such as name@example.com."]
     : !device ? ["device", "Choose your iPhone model."]
     : !role ? ["role", "Say whether you use a white cane or help someone who does."]
-    : !consent ? ["consent", "Tick the box to confirm you understand how your email is used."] : null;
+    : !consent ? ["consent", "Select the checkbox to confirm you understand how your email is used."] : null;
   if (problem) return show("One thing to fix", problem[1], true, problem[0]);
   if ($("go").getAttribute("aria-disabled") === "true") return;
   $("go").setAttribute("aria-disabled", "true");

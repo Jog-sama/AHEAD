@@ -1,8 +1,8 @@
 # Ahead on the App Store: listing draft
 
-The text for App Store Connect, with the evidence behind each answer. A draft: the screenshots, the demo video and the submission gate are open in the tracker "Ahead on the App Store". Anything marked **unverified** was read from the code, not tested on a phone with VoiceOver.
+The text for App Store Connect, with the evidence behind each answer. A draft: the screenshots, the demo video and the conditions for pressing Submit are open in [#29](https://github.com/Jog-sama/AHEAD/issues/29). The app's native code (`Ahead/PrivacyInfo.xcprivacy`, `Bridge/Speech.swift`, its `project.yml`) is in a separate private repository; the lines cited from it are quoted here.
 
-Rules relied on, read 2026-11-09 at developer.apple.com (the fetch summarises, so quote from the live page before citing in a dispute): App Review Guidelines 1.4.1 (medical apps with inaccurate information), 2.1 (final, working build; hardware or demo access needed to review), 2.5.2 (self-contained bundle), 4.2 (more than a repackaged website), 5.1.1(i) (a privacy policy linked in the metadata and in the app, with retention and deletion stated), 5.1.1(ii) (purpose strings that describe the use); Accessibility Nutrition Labels (a feature may be claimed only when every common task can be completed with it, assessed on each device; first launch and settings count as common tasks; labels are voluntary now and expected to become required).
+Rules relied on, as read on developer.apple.com on 2026-11-09 (quote the live page before citing one): App Review Guidelines 1.4.1 (medical apps with inaccurate information), 2.1 (final, working build; hardware or demo access needed to review), 2.5.2 (self-contained bundle), 4.2 (more than a repackaged website), 5.1.1(i) (a privacy policy linked in the metadata and in the app, with retention and deletion stated), 5.1.1(ii) (purpose strings that describe the use); Accessibility Nutrition Labels (a feature may be claimed only when every common task can be completed with it, assessed on each device; first launch and settings count as common tasks; labels are voluntary now and expected to become required).
 
 ## Listing
 
@@ -15,7 +15,7 @@ Rules relied on, read 2026-11-09 at developer.apple.com (the fetch summarises, s
 | Privacy policy URL | https://jonasneves.com/bridge/ahead/privacy/ (also in the app: Settings › Privacy policy) |
 | Marketing URL | https://github.com/Jog-sama/AHEAD |
 | Version | 1.0 (`project.yml`, setting group `aheadBuild`) |
-| Copyright | 2026 Jonas Neves |
+| Copyright | 2026 Jonas Neves (to confirm with the team; #29) |
 
 ### Description
 
@@ -29,17 +29,17 @@ Rules relied on, read 2026-11-09 at developer.apple.com (the fetch summarises, s
 >
 > Needs an iPhone with a LiDAR sensor (12 Pro or a later Pro model) and iOS 26 for asking by voice.
 >
-> What leaves the phone: when you ask a question, the photo, the distances and your question go to our server and on to Anthropic's Claude. Nothing else, and no tracking.
+> What leaves the phone: when you ask a question, the photo, the distances and your question go to our server and on to Anthropic's Claude. The app also registers a random id and the phone's name with our server. No tracking.
 
-Wording kept from the README: "never replaces the cane", the distances as measured, "no medical claim". It avoids "navigation aid", "safe", "detect obstacles for you" and any figure for accuracy, which 1.4.1 asks to be backed by data we do not have (the eval kit has no walk yet).
+Wording kept from the README: "never replaces the cane", the distances as measured, "no medical claim". It avoids "navigation aid", "safe", "detect obstacles for you" and any figure for accuracy, which 1.4.1 asks to be backed by data we do not have (no outdoor walk has been recorded with the eval kit yet).
 
-Promotional text (170): "A second cue beside your cane: LiDAR pulses for what is at chest and head height, and a spoken answer when you ask. In beta; never a replacement for your cane."
+Promotional text (170): "A second cue beside your cane: LiDAR pulses for what is at chest and head height, and a spoken answer when you ask. Never a replacement for your cane."
 
 ### Keywords (100)
 
 `cane,blind,low vision,accessibility,LiDAR,obstacle,haptic,white cane,mobility,assistive`
 
-(91 characters.) "Navigation" is left out on purpose.
+(87 characters.) "Navigation" is left out on purpose.
 
 ## App Privacy answers
 
@@ -53,7 +53,7 @@ Matches `Ahead/PrivacyInfo.xcprivacy` and the privacy policy page. Tracking: **N
 | Email Address | Yes | No | App functionality | only if the person fills the beta form on the web; not collected by the app. TestFlight only; remove from the store answers if the beta form is gone by release |
 | Everything else | No | | | no location (the Ahead build asks for none), contacts, health, usage or diagnostics; no SDKs, no analytics |
 
-"Linked to the user: No" holds because no account, email or Apple id is joined to the device id on the server (the phone's own name is stored beside the id; see the privacy page). If Jonas later joins the beta email to a device id, this answer changes.
+"Linked to the user: No" holds because no account, email or Apple id is joined to the device id on the server (the phone's own name is stored beside the id; see the privacy page). If the beta email is ever joined to a device id, this answer changes.
 
 The speech-to-text runs on the phone: `Bridge/Speech.swift` uses the iOS 26 `SpeechTranscriber` with a downloaded on-device model, so the usage string "on this phone" is accurate. Before iOS 26 the voice question reports "needs iOS 26".
 
@@ -88,7 +88,7 @@ The cloud also never judges a crossing: `isCrossing` in the Worker, on the quest
 
 ## Screenshots
 
-Taken on a real LiDAR iPhone, 6.9-inch size (iPhone 16 or 17 Pro Max), no mock-ups, per 2.3.3. The app targets iPhone only (`TARGETED_DEVICE_FAMILY: 1`), so no iPad set.
+Taken on a real LiDAR iPhone, 6.9-inch size (iPhone 16 or 17 Pro Max), no mock-ups, per 2.3.3. The app targets iPhone only (`TARGETED_DEVICE_FAMILY: 1` in the private repo's `project.yml`), so no iPad set.
 
 1. The walk screen before Start, "Ready".
 2. The walk screen mid-walk with the distance grid and the state box.
@@ -112,10 +112,10 @@ Draft, to be pasted with the demo video's link. Sign-in required: **off**. There
 >
 > Permissions are requested only when a feature is used: Camera and Motion when you tap Start, Microphone and Speech Recognition when you hold the button, Bluetooth when you connect the cane. Several other purpose strings exist because the shared code links those frameworks; the app never asks for them.
 >
-> Contact: <NAME, PHONE, EMAIL: Jonas's decision>
+> Contact: <contact, open in #29>
 
 What the reviewer's device will do, from the code: a non-LiDAR phone reaches Start and the Ask button; a phone on iOS 17 to 25 cannot ask by voice: the voice button reports "Could not listen: needs iOS 26" (`Bridge/Speech.swift:19`, shown by `listen` in the page), and there are no typed questions, so Ask there is the plain tap, answered on the phone from the photo and not sent to the cloud. State this in the notes if the reviewer's iOS version is unknown.
 
 ## Open before submission
 
-Listed with owners in the tracker: the demo video at a login-free link, the screenshots, the contact details above, the submission gate, an accessibility pass by a VoiceOver user, and whether to keep the email row in App Privacy.
+Listed with owners in the tracker: the demo video at a login-free link, the screenshots, the contact details above, the copyright holder, a support email address, retention periods on the privacy page, an accessibility pass by a VoiceOver user, and whether to keep the email row in App Privacy.

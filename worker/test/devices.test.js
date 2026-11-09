@@ -135,7 +135,8 @@ test("the mirror accepts a device's signature over mirror.<time> in place of the
   const p = await phone();
   await worker.fetch(p.enroll(), env);
   const sockets = [];
-  const ctx = { acceptWebSocket: (ws, tags) => sockets.push(Object.assign(ws, { tags })), getWebSockets: (tag) => sockets.filter((w) => w.open && w.tags.includes(tag)), getTags: (ws) => ws.tags };
+  const store = new Map();
+  const ctx = { storage: { get: async (k) => store.get(k), put: async (k, v) => void store.set(k, v) }, acceptWebSocket: (ws, tags) => sockets.push(Object.assign(ws, { tags })), getWebSockets: (tag) => sockets.filter((w) => w.open && w.tags.includes(tag)), getTags: (ws) => ws.tags };
   const m = new Mirror(ctx, env);
   const ws = { open: true, sent: [], att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, send(t) { this.sent.push(JSON.parse(t)); }, close(c) { this.open = false; this.closed = c; }, serializeAttachment(a) { this.att = a; }, deserializeAttachment() { return this.att; } };
   ctx.acceptWebSocket(ws, ["send"]);
@@ -159,4 +160,11 @@ test("the mirror accepts a device's signature over mirror.<time> in place of the
   ctx.acceptWebSocket(other, ["send"]);
   await m.webSocketMessage(other, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: await p.sign(`mirror.ABCDEFGH.${time}`) } }));
   assert.equal(other.closed, 4001, "a hello for one room opens no other");
+  const intruder = await phone();
+  await worker.fetch(intruder.enroll(), env);
+  const t2 = Date.now();
+  const taken = { ...ws, open: true, att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, sent: [] };
+  ctx.acceptWebSocket(taken, ["send"]);
+  await m.webSocketMessage(taken, JSON.stringify({ type: "hello", device: { id: intruder.id, time: t2, sig: await intruder.sign(`mirror.ABCDEFGH.${t2}`) } }));
+  assert.equal(taken.closed, 4001, "an enrolled stranger cannot send into a room another device holds");
 });

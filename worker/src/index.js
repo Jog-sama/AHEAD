@@ -381,6 +381,13 @@ export class Mirror {
         const d = hello.device;
         this.queued.set(ws, []);
         ok = Boolean(await signedBy(this.env, d.id, d.time, d.sig, `mirror.${state.code}.${d.time}`));
+        // Phones enroll without a person's approval, so a room belongs to the first device that opens it: another
+        // device that guessed the code cannot send into it. The owner token is not bound.
+        if (ok) {
+          const owner = await this.ctx.storage.get("device");
+          if (owner && owner !== d.id) ok = false;
+          else if (!owner) await this.ctx.storage.put("device", d.id);
+        }
       } else if (ok) ok = sameToken(hello.token, this.env.OWNER_TOKEN);
       const later = this.queued.get(ws) || [];
       this.queued.delete(ws);

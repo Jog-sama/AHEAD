@@ -37,7 +37,7 @@ Every `/api/*` route requires `X-API-Key`; `/health` is public. Firmware `/steer
 - `web/` the phone page, no build step
 - `firmware/TactileVector/` sketch, safety policy, example config
 - `firmware/thumb/` the same servo as a BLE peripheral for the Ahead app, which decides the cue on the phone
-- `ios/Ahead/` Ahead's app page, bundled by phone-bridge's `Ahead` target and published to jonasneves.com/bridge/ahead/
+- `ios/Ahead/` Ahead's app page, bundled by phone-bridge's `Ahead` target
 - `firmware/cane/` Ahead's cane board: PlatformIO, ESP32-C3 or DevKit V1, BLE peripheral
 - `scripts/` configure, demo, ESP32 simulator, smoke tests, model preparation
 - `tests/`, `evidence/` the test suite and what it actually proved

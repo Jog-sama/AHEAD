@@ -7,12 +7,12 @@ const PIXEL = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP///////////////////////////////
 const post = (body, headers = {}) =>
   new Request("https://ahead-ask.test/", {
     method: "POST",
-    headers: { Authorization: "Bearer tok", Origin: "https://jonasneves.com", "Content-Type": "application/json", ...headers },
+    headers: { Authorization: "Bearer tok", Origin: "https://aheadcane.github.io", "Content-Type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 
 test("OPTIONS answers allowed origins, including the app's null origin", async () => {
-  for (const origin of ["https://jonasneves.com", "null"]) {
+  for (const origin of ["https://aheadcane.github.io", "null"]) {
     const res = await worker.fetch(new Request("https://ahead-ask.test/", { method: "OPTIONS", headers: { Origin: origin } }), env);
     assert.equal(res.status, 204, origin);
     assert.equal(res.headers.get("Access-Control-Allow-Origin"), origin);
@@ -25,7 +25,7 @@ test("OPTIONS answers allowed origins, including the app's null origin", async (
 test("a wrong or missing token is a 401 the page can read", async () => {
   const res = await worker.fetch(post({ image: PIXEL }, { Authorization: "Bearer nope" }), env);
   assert.equal(res.status, 401);
-  assert.equal(res.headers.get("Access-Control-Allow-Origin"), "https://jonasneves.com");
+  assert.equal(res.headers.get("Access-Control-Allow-Origin"), "https://aheadcane.github.io");
   const none = await worker.fetch(post({ image: PIXEL }, { Authorization: "" }), env);
   assert.equal(none.status, 401);
 });

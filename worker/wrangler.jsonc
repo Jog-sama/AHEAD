@@ -4,14 +4,13 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
-  "durable_objects": { "bindings": [{ "name": "MIRROR", "class_name": "Mirror" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mirror"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mirror"] }, { "tag": "v2", "deleted_classes": ["Mirror"] }],
   "kv_namespaces": [{ "binding": "DEVICES", "id": "4038b2c5949a4c3ca1cbd3174ec0635c" }],
   "d1_databases": [{ "binding": "BETA", "database_name": "ahead-beta", "database_id": "a7314a45-27a9-44d0-9be6-a3a68cfe18ba", "migrations_dir": "migrations" }],
   "vars": {
     // The TestFlight app and external group that beta requests are added to (the group's name as in App Store Connect).
     "ASC_APP_ID": "6832095318",
-    "ASC_GROUP_NAME": "Team"
+    "ASC_GROUP_NAME": "Public beta"
   }
   // Secrets ANTHROPIC_API_KEY and OWNER_TOKEN come from `wrangler secret put` (and .dev.vars locally), never from this
   // file. The beta form also reads ASC_KEY_ID, ASC_ISSUER_ID and ASC_PRIVATE_KEY (the .p8's text), and optionally

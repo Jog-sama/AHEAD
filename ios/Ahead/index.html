@@ -97,20 +97,7 @@ dl{display:grid;grid-template-columns:1fr auto;gap:0 12px;margin:0}
 dt{color:var(--text);min-height:44px;display:flex;align-items:center}
 dd{margin:0;color:var(--dim);font-variant-numeric:tabular-nums;text-align:right;display:flex;align-items:center;justify-content:flex-end}
 dt+dd+dt,dt+dd+dt+dd{border-top:1px solid var(--line)}
-.code{font-size:28px;line-height:1.2;font:-apple-system-title1;font-weight:700;letter-spacing:.14em;font-variant-numeric:tabular-nums;text-align:center;margin:0 0 10px}
-.code:empty{display:none}
-/* Watching on a computer: the page is the phone, drawn at the iPhone 15 Pro's 393 × 852 points inside a bezel and
-   zoomed as one block to the window, so a projector shows the layout the phone has, larger; the viewer's own line
-   sits above the frame. */
 [hidden]{display:none!important}  /* .row and .stat set a display of their own, which would otherwise win over hidden */
-body.watch .phone-only{display:none}
-body.watch{display:flex;flex-direction:column;align-items:center;gap:18px;padding:22px 16px;min-height:100vh;box-sizing:border-box}
-body.watch #link{margin:0;text-align:center;font-size:17px}
-.frame{position:relative;flex:none;width:393px;height:852px;border-radius:55px;background:var(--bg);overflow:hidden;
-  box-shadow:0 0 0 12px #141414,0 0 0 14px #3a3a3c,0 24px 60px rgba(0,0,0,.5)}
-.frame::before{content:'';position:absolute;z-index:1;left:50%;top:11px;width:126px;height:37px;margin-left:-63px;border-radius:19px;background:#000}
-.frame main{height:100%;max-width:none;width:393px;box-sizing:border-box;padding:54px 16px 0;overflow-y:auto;scrollbar-width:none}
-.frame main::-webkit-scrollbar{display:none}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 @media(prefers-contrast:more){.card{border:1px solid var(--line)}.btn{border:1px solid currentColor}}
 </style>
@@ -122,7 +109,6 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
   <button class=icon id=settings aria-label=Settings aria-haspopup=dialog><svg viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 stroke-linecap=round stroke-linejoin=round aria-hidden=true><circle cx=12 cy=12 r=3 /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
 </header>
 <p role=status id=stat class=stat>Looking for Bridge…</p>
-<p role=status id=link class=stat hidden></p>
 
 <section class=walk aria-label="The path ahead">
   <div class=state id=state-box title="Tap to hear the distance">
@@ -153,24 +139,24 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <dialog id=sheet class=sheet aria-labelledby=sheet-title>
 <div class=sheet-bar><h1 id=sheet-title>Settings</h1><button id=sheet-done>Done</button></div>
 <div class=sheet-body>
-<h2 class=phone-only>Cane</h2>
-<section class="card phone-only" aria-label=Cane>
+<h2>Cane</h2>
+<section class=card aria-label=Cane>
   <div class=pad><p class=stat role=status id=cane-stat>Cane: not connected.</p></div>
 </section>
-<p class="foot phone-only">Tap the cane button at the top to connect. On the cane, tap asks and hold asks a question.</p>
+<p class=foot>Tap the cane button at the top to connect. On the cane, tap asks and hold asks a question.</p>
 
-<h2 class=phone-only>Thumb lever</h2>
-<section class="card phone-only" aria-label="Thumb lever">
+<h2>Thumb lever</h2>
+<section class=card aria-label="Thumb lever">
   <div class=pad><p class=stat role=status id=thumb-stat>Thumb lever: not connected.</p></div>
   <div class=pad><button class=btn id=thumb-connect>Connect thumb lever</button></div>
   <div class=row><label for=thumb-left>Left angle</label><input id=thumb-left type=number inputmode=numeric step=1 min=60 max=120 value=78></div>
   <div class=row><label for=thumb-right>Right angle</label><input id=thumb-right type=number inputmode=numeric step=1 min=60 max=120 value=102></div>
   <div class="pad pair"><button class=btn id=thumb-test-l disabled>Hold for left</button><button class=btn id=thumb-test-r disabled>Hold for right</button></div>
 </section>
-<p class="foot phone-only">While the walk runs, the lever points to a side the LiDAR measures open beyond 1.65 m at chest height, and rests at neutral for ahead, for unsure and for anything within 0.55 m straight ahead. Open ground with nothing standing behind it counts as unsure, and nothing below 0.6 m is seen. Calibrate with the walk stopped: hold a test button, release for neutral.</p>
+<p class=foot>While the walk runs, the lever points to a side the LiDAR measures open beyond 1.65 m at chest height, and rests at neutral for ahead, for unsure and for anything within 0.55 m straight ahead. Open ground with nothing standing behind it counts as unsure, and nothing below 0.6 m is seen. Calibrate with the walk stopped: hold a test button, release for neutral.</p>
 
-<h2 class=phone-only>Setup</h2>
-<section class="card phone-only" aria-label=Setup>
+<h2>Setup</h2>
+<section class=card aria-label=Setup>
   <div class=row><label for=mount>Camera height, m</label><input id=mount type=number inputmode=decimal step=0.05 min=0.5 max=2 value=1.3></div>
   <div class=row><label for=side>Side in slow pulses</label><input id=side type=checkbox role=switch></div>
   <div class=row><label for=sound>Sound under 1 m</label><input id=sound type=checkbox role=switch></div>
@@ -181,20 +167,7 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
   <div class=row><label for=cloud-url>Cloud</label><input id=cloud-url type=url inputmode=url autocapitalize=off autocorrect=off spellcheck=false placeholder="https://…"></div>
   <div class=pad><p class=stat role=status id=cloud-stat>Cloud: off. Questions are answered on the phone.</p></div>
 </section>
-<p class="foot phone-only">Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound under 1 m plays a short tone with each fast pulse, none for slow ones, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone registers once with the cloud; after that a question, the photo and the depth go to it, nothing else.</p>
-
-<div id=computer>
-<h2 class=phone-only>Computer</h2>
-<section class="card phone-only" aria-label="Show on a computer">
-  <div class=pad>
-    <p class=code id=code aria-live=polite></p>
-    <div class=row id=watch-row hidden style="padding:0;margin-bottom:8px"><label for=watch-code>Code</label><input id=watch-code autocapitalize=characters autocorrect=off spellcheck=false maxlength=8 placeholder="ABCD2345"></div>
-    <button class=btn id=mirror>Show on a computer</button>
-    <output class=res id=r-mirror aria-live=polite></output>
-  </div>
-</section>
-<p class="foot phone-only" id=mirror-foot>What this screen shows, as text, goes through the cloud endpoint to a computer that opens jonasneves.com/bridge/ahead/ and enters the code. The photo does not.</p>
-</div>
+<p class=foot>Height from the ground to the camera, set before Start: chest pocket 1.3, hip 0.9. Side in slow pulses: two short taps for something to the left, one long buzz to the right, one pulse straight ahead; under 1 m the pulse stays plain. Sound under 1 m plays a short tone with each fast pulse, none for slow ones, and with headphones it comes from the side the thing is on; it is off by default, since ears are for traffic. Slow pulses within 2.5 m, fast within 1 m; silence is not clear. Crossings are never judged. This phone registers once with the cloud; after that a question, the photo and the depth go to it, nothing else.</p>
 
 <h2>This walk</h2>
 <section class=card aria-label="This walk">
@@ -299,7 +272,6 @@ const COLUMNS=['t_s','event','walking','state','dist_m','band','col','src','ms',
 function note(ev,f){
   f=f||{};
   log.push([((Date.now()-t0)/1000).toFixed(2),ev,walking?1:0,f.state??'',f.dist??'',f.band??'',f.col??'',f.src??'',f.ms??'',f.text??'',batt??'',thermal]);
-  mirrorSend(JSON.stringify({type:'row',row:log[log.length-1]}));
 }
 
 // Alerts that stay until their cause clears; the alert line is their text, never a colour alone.
@@ -893,149 +865,6 @@ if(has){
   native.on('ble.disconnected',d=>{if(bleKnown.has(d.id))setTimeout(()=>bleResume(d.id),0)});
 }
 
-// ── Show on a computer ───────────────────────────────────────────────────────────────────────────────────────────
-// What the screen shows, as text and cell colours, goes through the cloud endpoint (`/mirror/<code>`, a WebSocket)
-// to this same page opened on a computer with `?watch=<code>`; the photo never goes. The code is made once and
-// kept, so the computer's address holds from one run to the next. Each log row goes too, so the computer can copy
-// the log.
-const ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789', ROOM=/^[A-HJ-NP-Z2-9]{8}$/;
-const MIRRORED=['stat','state','alert','cor-empty','r-go','r-ask','cane-d','cane-stat','thumb-d','thumb-stat','m-time','m-dist','m-alerts','m-rate','m-frames','m-lost','m-batt'];
-const mirror={on:false,ws:null,raf:0,retry:null,wait:1000,last:null,code:store.get('ahead.mirror.code')};
-if(!ROOM.test(mirror.code)){mirror.code=[...crypto.getRandomValues(new Uint8Array(8))].map(b=>ALPHABET[b%32]).join('');store.set('ahead.mirror.code',mirror.code)}
-function mirrorURL(code,role){const u=new URL(cloud.url);u.protocol=u.protocol==='http:'?'ws:':'wss:';u.pathname='/mirror/'+code;u.search=role==='send'?'?role=send':'';return u.href}
-// The screen as the computer needs it: texts by id, error marks, the 18 cells, the Start button, the cane button and
-// where the thumb has the page, as a share of the scroll range.
-function screenState(){
-  const t={};for(const id of MIRRORED)t[id]=$(id).textContent;
-  return {t,err:['r-go','r-ask'].filter(id=>$(id).classList.contains('err')),
-    cells:cells.map(td=>td.textContent+'\u0001'+td.className),go:$('go').textContent+'\u0001'+($('go').classList.contains('stop')?1:0),cane:$('cane-l').textContent,th:$('thumb').hidden?0:1,st:$('state-box').dataset.s||'',
-    scroll:Math.round(1000*scrollY/Math.max(1,document.documentElement.scrollHeight-innerHeight))/1000};
-}
-function mirrorSend(text){if(mirror.on&&mirror.ws&&mirror.ws.readyState===1)try{mirror.ws.send(text)}catch{}}
-// Changes go out once per animation frame as a delta against the last send, stamped with the phone's clock; the whole
-// screen goes every 2 s, which is also what a computer joining late is shown.
-function mirrorFlush(force){
-  mirror.raf=0;
-  if(!mirror.on)return;
-  const now=screenState(), was=mirror.last;
-  if(force||!was){mirror.last=now;mirrorSend(JSON.stringify({type:'state',at:Date.now(),...now}));return}
-  const d={};
-  for(const id in now.t)if(now.t[id]!==was.t[id])(d.t??={})[id]=now.t[id];
-  if(now.err.join()!==was.err.join())d.err=now.err;
-  now.cells.forEach((c,i)=>{if(c!==was.cells[i])(d.cells??={})[i]=c});
-  if(now.go!==was.go)d.go=now.go;
-  if(now.cane!==was.cane)d.cane=now.cane;
-  if(now.th!==was.th)d.th=now.th;
-  if(now.st!==was.st)d.st=now.st;
-  if(now.scroll!==was.scroll)d.scroll=now.scroll;
-  mirror.last=now;
-  if(Object.keys(d).length)mirrorSend(JSON.stringify({type:'delta',at:Date.now(),...d}));
-}
-const mirrorQueue=()=>{if(mirror.on&&!mirror.raf)mirror.raf=requestAnimationFrame(()=>mirrorFlush())};
-new MutationObserver(mirrorQueue).observe(document.querySelector('main'),{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
-addEventListener('scroll',mirrorQueue,{passive:true});
-setInterval(()=>mirrorFlush(true),2000);
-function mirrorStatus(text,err){
-  show('mirror',text,err);
-  $('mirror').textContent=mirror.on?'Stop showing':'Show on a computer';
-  $('code').textContent=mirror.on?mirror.code:'';
-}
-function mirrorOpen(){
-  clearTimeout(mirror.retry);
-  if(!mirror.on)return;
-  let ws;
-  try{ws=new WebSocket(mirrorURL(mirror.code,'send'))}catch(e){mirrorStatus(msg(e),true);return}
-  mirror.ws=ws;
-  ws.onopen=async()=>{
-    const time=Date.now();
-    mirror.wait=1000;ws.send(JSON.stringify({type:'hello',device:{id:deviceId,time,sig:await sign(`mirror.${mirror.code}.${time}`)}}));
-    mirrorFlush(true);
-    mirrorStatus(`Code ${mirror.code}. No computer watching yet.`);
-  };
-  ws.onmessage=e=>{
-    let m;try{m=JSON.parse(e.data)}catch{return}
-    if(m.type==='watchers')mirrorStatus(`Code ${mirror.code}. ${m.n===0?'No computer watching yet.':m.n===1?'One computer watching.':m.n+' computers watching.'}`);
-  };
-  ws.onclose=e=>{
-    if(mirror.ws!==ws)return;
-    mirror.ws=null;
-    if(e.code===4001){mirrorStop();mirrorStatus('The cloud does not accept this phone.',true);return}
-    if(!mirror.on)return;
-    mirrorStatus(`Code ${mirror.code}. Reconnecting…`);
-    mirror.retry=setTimeout(mirrorOpen,mirror.wait);mirror.wait=Math.min(mirror.wait*2,8000);
-  };
-}
-function mirrorStart(){
-  if(!cloudOn())return mirrorStatus('The cloud has not accepted this phone yet.',true);
-  mirror.on=true;mirror.wait=1000;store.set('ahead.mirror.on','1');
-  mirrorStatus(`Code ${mirror.code}. Connecting…`);mirrorOpen();
-}
-function mirrorStop(){
-  mirror.on=false;store.set('ahead.mirror.on','');
-  clearTimeout(mirror.retry);cancelAnimationFrame(mirror.raf);mirror.raf=0;mirror.last=null;
-  if(mirror.ws){const w=mirror.ws;mirror.ws=null;try{w.close()}catch{}}
-  mirrorStatus('');
-}
-$('mirror').onclick=()=>{
-  if(!has){
-    const c=$('watch-code').value.trim().toUpperCase();
-    if(!ROOM.test(c))return show('mirror','The code is the 8 letters and digits the phone shows.',true);
-    location.search='?watch='+c;return;
-  }
-  if(mirror.on)mirrorStop();else mirrorStart();
-};
-
-// ── Watching a phone, on a computer ──────────────────────────────────────────────────────────────────────────────
-const watching=(()=>{const c=new URLSearchParams(location.search).get('watch')||'';return !has&&ROOM.test(c)?c:''})();
-// A full state or a delta, applied the same way; the scroll is a target the frame glides to a third of the way each
-// frame, so it stays within a frame or two of the phone and still looks smooth (jumps under reduced motion).
-const view={scroll:null,raf:0,lat:[],latAt:0};
-function applyState(m){
-  for(const id in m.t||{}){const el=$(id);if(el&&el.textContent!==m.t[id])el.textContent=m.t[id]}
-  if(m.err)['r-go','r-ask'].forEach(id=>$(id).classList.toggle('err',m.err.includes(id)));
-  for(const i in m.cells||{}){const td=cells[i];if(!td)continue;const [t,c]=m.cells[i].split('\u0001');if(td.textContent!==t)td.textContent=t;if(td.className!==c)td.className=c}
-  if(typeof m.go==='string'){const [t,stop]=m.go.split('\u0001');$('go').textContent=t;$('go').classList.toggle('stop',stop==='1')}
-  if(typeof m.cane==='string')$('cane-l').textContent=m.cane;
-  if(typeof m.th==='number')$('thumb').hidden=!m.th;
-  if(typeof m.st==='string')$('state-box').dataset.s=m.st;
-  if(typeof m.scroll==='number'){view.scroll=m.scroll;if(!view.raf)view.raf=requestAnimationFrame(glide)}
-  if(typeof m.at==='number'){view.lat.push(Date.now()-m.at);if(view.lat.length>20)view.lat.shift()}
-}
-function glide(){
-  view.raf=0;
-  const el=document.querySelector('main'), target=view.scroll*(el.scrollHeight-el.clientHeight), gap=target-el.scrollTop;
-  if(Math.abs(gap)<.5)return;
-  if(matchMedia('(prefers-reduced-motion:reduce)').matches){el.scrollTop=target;return}
-  el.scrollTop+=gap*.35;view.raf=requestAnimationFrame(glide);
-}
-// The one-way delay, phone clock to this one, as the median of the last 20 messages; both clocks are set by the network.
-function latency(){if(!view.lat.length)return '';const s=[...view.lat].sort((a,b)=>a-b);return ` · ${Math.max(0,s[s.length>>1])} ms behind`}
-function watch(){
-  document.body.classList.add('watch');document.title=`Ahead · ${watching}`;
-  $('link').hidden=false;$('copy').disabled=false;log=[COLUMNS];
-  const main=document.querySelector('main'), frame=document.createElement('div');
-  frame.className='frame';document.body.prepend($('link'));main.replaceWith(frame);frame.append(main);
-  const fit=()=>{frame.style.zoom=Math.max(.3,Math.min((innerHeight-$('link').offsetHeight-72)/880,(innerWidth-64)/421))};
-  fit();addEventListener('resize',fit);
-  let wait=1000;
-  const open=()=>{
-    const ws=new WebSocket(mirrorURL(watching,'watch'));
-    ws.onopen=()=>{wait=1000;$('link').textContent=`Watching phone ${watching}.`};
-    ws.onmessage=e=>{
-      let m;try{m=JSON.parse(e.data)}catch{return}
-      if(m.type==='state'||m.type==='delta'){
-        applyState(m);
-        if(Date.now()-view.latAt>500){view.latAt=Date.now();$('link').textContent=`Watching phone ${watching}${latency()}.`}
-      }
-      else if(m.type==='row')log.push(m.row);
-      else if(m.type==='reset')log=[COLUMNS];
-      else if(m.type==='phone'){view.lat=[];$('link').textContent=m.on?`Watching phone ${watching}.`:`Phone ${watching} is not showing. On the phone: Computer, Show on a computer.`}
-    };
-    ws.onclose=()=>{$('link').textContent='Reconnecting…';setTimeout(open,wait);wait=Math.min(wait*2,8000)};
-  };
-  open();
-}
-
 let asking=false, listening=null, releaseEarly=false;
 // Whether to cross, go or walk is never answered.
 const CROSSING=/\b(safe|clear|okay|ok|all ?right|fine|good)\b[^.?!]*\b(cross|go|walk|proceed|step|continue)|\b(can|could|should|may|shall|do)\s+i\s+(cross|go|walk|proceed|step|continue)|\bcross(ing)?\b|\bis\s+(it|the\s+\w+)\s+(clear|safe|free)\b|\b(path|way|road|street)\b[^.?!]*\bclear\b/i;
@@ -1200,7 +1029,7 @@ async function dim(walking){
 }
 async function start(){
   mount=parseFloat($('mount').value)||1.3;
-  t0=Date.now();frames=lost=alerts=dist=0;log=[COLUMNS];mirrorSend(JSON.stringify({type:'reset'}));
+  t0=Date.now();frames=lost=alerts=dist=0;log=[COLUMNS];
   ['m-dist','m-alerts','m-frames','m-lost'].forEach(id=>$(id).textContent='0');$('m-rate').textContent='–';
   await call('depth.start',{hz:HZ,mount}).catch(e=>{
     if(/no LiDAR/i.test(msg(e)))throw new Error('This iPhone has no LiDAR sensor, so the walk cue cannot run. Ahead needs an iPhone 12 Pro or a later Pro model. You can still ask a question about a photo.');
@@ -1295,14 +1124,9 @@ $('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))$('sheet').clos
 (async()=>{
   if(!has){
     BUTTONS.forEach(id=>$(id).disabled=true);
-    if(watching)return watch();
-    $('sheet').before($('computer'));document.querySelector('main').style.height='auto';   // the browser shows the code entry too, so it scrolls$('computer').querySelectorAll('.phone-only').forEach(e=>e.classList.remove('phone-only'));
-    $('stat').textContent='Open this page in the Ahead app, or enter a phone\'s code below to watch it.';
-    $('watch-row').hidden=false;$('mirror').textContent='Watch';
-    $('mirror-foot').textContent='The code is under Computer on the phone, once it shows.';
+    $('stat').textContent='Open this page in the Ahead app.';
     return;
   }
-  if(store.get('ahead.mirror.on')&&cloudOn())mirrorStart();
   try{
     const l=await call('list');
     if(!l.includes('depth.start')){$('stat').textContent='This build of Bridge has no LiDAR depth.';$('go').disabled=true;return}

@@ -10,7 +10,7 @@ import { betaRequest, betaOwner } from "./beta.js";
 const MODEL = "claude-opus-5-5";
 const TIMEOUT_MS = 8000;
 const MAX_WORDS = 25;
-const ALLOWED_ORIGINS = ["https://jonasneves.com", "https://aheadcane.github.io", "null"];
+const ALLOWED_ORIGINS = ["https://aheadcane.github.io", "null"];
 
 export const NO_ANSWER = { answer: "Not sure.", abstain: true, reason: "no answer" };
 export const CROSSING = { answer: "I do not judge crossings.", abstain: true, reason: "crossing" };
@@ -309,146 +309,11 @@ async function ask(env, { image, corridor, question }) {
   }
 }
 
-// Mirror: the phone shows its screen on a computer during a demo. One Durable Object per room code holds one
-// WebSocket from the phone (the sender, which proves itself in its first message: the owner token, or its device's
-// signature over `mirror.<code>.<time>`) and any number of
-// viewers (the page opened on a computer with the code; the code, 8 characters from a 32-letter alphabet, is the
-// only thing a viewer needs). Every message from the phone is a full snapshot of what its screen shows, so the
-// latest one is replayed to a viewer that joins late; the photo never passes through here.
-export const ROOM = /^[A-HJ-NP-Z2-9]{8}$/;
-const HELLO_MS = 5000;
-
-export class Mirror {
-  constructor(ctx, env) {
-    this.ctx = ctx;
-    this.env = env;
-    this.last = null;
-  }
-
-  fetch(request) {
-    const role = new URL(request.url).searchParams.get("role") === "send" ? "send" : "watch";
-    const pair = new WebSocketPair();
-    const [client, server] = [pair[0], pair[1]];
-    this.ctx.acceptWebSocket(server, [role]);
-    if (role === "send") {
-      server.serializeAttachment({ auth: false, since: Date.now(), code: new URL(request.url).pathname.slice("/mirror/".length) });
-    } else {
-      server.send(JSON.stringify({ type: "phone", on: this.senders().length > 0 }));
-      if (this.last) server.send(this.last);
-      this.tellSenders();
-    }
-    return new Response(null, { status: 101, webSocket: client });
-  }
-
-  senders() {
-    return this.ctx.getWebSockets("send").filter((ws) => ws.deserializeAttachment()?.auth);
-  }
-
-  broadcast(tag, text) {
-    for (const ws of this.ctx.getWebSockets(tag)) {
-      try {
-        ws.send(text);
-      } catch {}
-    }
-  }
-
-  tellSenders(except) {
-    const n = this.ctx.getWebSockets("watch").filter((w) => w !== except).length;
-    for (const ws of this.senders()) {
-      try {
-        ws.send(JSON.stringify({ type: "watchers", n }));
-      } catch {}
-    }
-  }
-
-  async webSocketMessage(ws, message) {
-    if (typeof message !== "string" || !this.ctx.getTags(ws).includes("send")) return;
-    const state = ws.deserializeAttachment() || {};
-    if (!state.auth) {
-      // The phone's first snapshot follows its hello at once, and a device hello is verified against KV, an await
-      // other events run through; what arrives meanwhile waits in a queue instead of being read as a failed hello.
-      this.queued ??= new Map();
-      if (this.queued.has(ws)) {
-        this.queued.get(ws).push(message);
-        return;
-      }
-      let hello = null;
-      try {
-        hello = JSON.parse(message);
-      } catch {}
-      let ok = hello?.type === "hello" && Date.now() - (state.since || 0) <= HELLO_MS;
-      if (ok && hello.device) {
-        const d = hello.device;
-        this.queued.set(ws, []);
-        ok = Boolean(await signedBy(this.env, d.id, d.time, d.sig, `mirror.${state.code}.${d.time}`));
-        // Phones enroll without a person's approval, so a room belongs to the first device that opens it: another
-        // device that guessed the code cannot send into it. The owner token is not bound.
-        if (ok) {
-          const owner = await this.ctx.storage.get("device");
-          if (owner && owner !== d.id) ok = false;
-          else if (!owner) await this.ctx.storage.put("device", d.id);
-        }
-      } else if (ok) ok = sameToken(hello.token, this.env.OWNER_TOKEN);
-      const later = this.queued.get(ws) || [];
-      this.queued.delete(ws);
-      if (!ok) {
-        ws.close(4001, "unauthorized");
-        return;
-      }
-      ws.serializeAttachment({ auth: true });
-      ws.send(JSON.stringify({ type: "watchers", n: this.ctx.getWebSockets("watch").length }));
-      this.broadcast("watch", JSON.stringify({ type: "phone", on: true }));
-      for (const m of later) this.relay(m);
-      return;
-    }
-    this.relay(message);
-  }
-
-  relay(message) {
-    if (message.length > 65536) return;
-    if (message.startsWith('{"type":"state"')) this.last = message;
-    this.broadcast("watch", message);
-  }
-
-  webSocketClose(ws) {
-    this.gone(ws);
-  }
-
-  webSocketError(ws) {
-    this.gone(ws);
-  }
-
-  gone(ws) {
-    this.queued?.delete(ws);
-    const tags = this.ctx.getTags(ws);
-    try {
-      ws.close(1000);
-    } catch {}
-    if (tags.includes("send")) {
-      if (ws.deserializeAttachment()?.auth && this.senders().filter((s) => s !== ws).length === 0) {
-        this.last = null;
-        this.broadcast("watch", JSON.stringify({ type: "phone", on: false }));
-      }
-    } else {
-      this.tellSenders(ws);
-    }
-  }
-}
-
-function mirror(request, env, origin, headers) {
-  const code = new URL(request.url).pathname.slice("/mirror/".length);
-  if (!ROOM.test(code)) return json({ error: "no such room" }, 404, headers);
-  if (origin !== null && !ALLOWED_ORIGINS.includes(origin)) return json({ error: "forbidden" }, 403, headers);
-  if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return json({ error: "websocket only" }, 426, headers);
-  return env.MIRROR.get(env.MIRROR.idFromName(code)).fetch(request);
-}
-
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
     const headers = corsHeaders(origin);
     const path = new URL(request.url).pathname;
-    if (path.startsWith("/mirror/")) return mirror(request, env, origin, headers);
     if (request.method === "OPTIONS") {
       const allowed = origin === null || Boolean(headers["Access-Control-Allow-Origin"]);
       return new Response(null, { status: allowed ? 204 : 403, headers });

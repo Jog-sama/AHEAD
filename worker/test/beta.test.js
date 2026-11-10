@@ -23,7 +23,7 @@ function kv() {
   const m = new Map();
   return { m, get: async (k) => m.get(k) ?? null, put: async (k, v) => void m.set(k, v), delete: async (k) => void m.delete(k), list: async () => ({ keys: [] }) };
 }
-const ORIGIN = { Origin: "https://jonasneves.com", "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.7" };
+const ORIGIN = { Origin: "https://aheadcane.github.io", "Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.7" };
 const form = (over = {}) => new Request("https://ahead-ask.test/beta", { method: "POST", headers: ORIGIN, body: JSON.stringify({ email: "a@example.com", device: "iphone-15-pro", role: "cane", consent: true, ...over }) });
 const owner = (path, method = "GET") => new Request(`https://ahead-ask.test${path}`, { method, headers: { ...ORIGIN, Authorization: "Bearer tok" } });
 

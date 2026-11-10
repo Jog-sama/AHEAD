@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import worker, { Mirror, CROSSING } from "../src/index.js";
+import worker, { CROSSING } from "../src/index.js";
 
 // A stand-in for the KV namespace: get with a type, put with a TTL, delete, list by prefix.
 function kv() {
@@ -24,7 +24,7 @@ function kv() {
 }
 
 const PIXEL = "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
-const ORIGIN = { Origin: "https://jonasneves.com", "Content-Type": "application/json" };
+const ORIGIN = { Origin: "https://aheadcane.github.io", "Content-Type": "application/json" };
 const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const sha256 = async (text) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -128,43 +128,4 @@ test("enrolling is limited per address and per day", async () => {
   const small = { OWNER_TOKEN: "tok", DEVICES: kv(), ENROLL_DAY_CAP: "1" };
   assert.equal((await worker.fetch((await phone()).enroll(), small)).status, 200);
   assert.equal((await worker.fetch((await phone()).enroll(), small)).status, 429);
-});
-
-test("the mirror accepts a device's signature over mirror.<time> in place of the owner token", async () => {
-  const env = { OWNER_TOKEN: "tok", DEVICES: kv() };
-  const p = await phone();
-  await worker.fetch(p.enroll(), env);
-  const sockets = [];
-  const store = new Map();
-  const ctx = { storage: { get: async (k) => store.get(k), put: async (k, v) => void store.set(k, v) }, acceptWebSocket: (ws, tags) => sockets.push(Object.assign(ws, { tags })), getWebSockets: (tag) => sockets.filter((w) => w.open && w.tags.includes(tag)), getTags: (ws) => ws.tags };
-  const m = new Mirror(ctx, env);
-  const ws = { open: true, sent: [], att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, send(t) { this.sent.push(JSON.parse(t)); }, close(c) { this.open = false; this.closed = c; }, serializeAttachment(a) { this.att = a; }, deserializeAttachment() { return this.att; } };
-  ctx.acceptWebSocket(ws, ["send"]);
-  const viewer = { open: true, sent: [], att: null, send(t) { this.sent.push(JSON.parse(t)); }, close() { this.open = false; }, serializeAttachment() {}, deserializeAttachment() { return null; } };
-  ctx.acceptWebSocket(viewer, ["watch"]);
-  const time = Date.now();
-  // The snapshot follows the hello before the signature check has finished, as the phone sends it.
-  const snap = JSON.stringify({ type: "state", t: { state: "Watching" } });
-  const first = m.webSocketMessage(ws, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: await p.sign(`mirror.ABCDEFGH.${time}`) } }));
-  const second = m.webSocketMessage(ws, snap);
-  await Promise.all([first, second]);
-  assert.equal(ws.closed, undefined, "the early snapshot must not be read as a bad hello");
-  assert.equal(ws.att.auth, true);
-  assert.deepEqual(viewer.sent.at(-1), JSON.parse(snap), "the queued snapshot reaches the viewer after the hello passes");
-  assert.equal(m.last, snap);
-  const bad = { ...ws, open: true, att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, sent: [] };
-  ctx.acceptWebSocket(bad, ["send"]);
-  await m.webSocketMessage(bad, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: "AAAA" } }));
-  assert.equal(bad.closed, 4001);
-  const other = { ...ws, open: true, att: { auth: false, since: Date.now(), code: "ZZZZZZZZ" }, sent: [] };
-  ctx.acceptWebSocket(other, ["send"]);
-  await m.webSocketMessage(other, JSON.stringify({ type: "hello", device: { id: p.id, time, sig: await p.sign(`mirror.ABCDEFGH.${time}`) } }));
-  assert.equal(other.closed, 4001, "a hello for one room opens no other");
-  const intruder = await phone();
-  await worker.fetch(intruder.enroll(), env);
-  const t2 = Date.now();
-  const taken = { ...ws, open: true, att: { auth: false, since: Date.now(), code: "ABCDEFGH" }, sent: [] };
-  ctx.acceptWebSocket(taken, ["send"]);
-  await m.webSocketMessage(taken, JSON.stringify({ type: "hello", device: { id: intruder.id, time: t2, sig: await intruder.sign(`mirror.ABCDEFGH.${t2}`) } }));
-  assert.equal(taken.closed, 4001, "an enrolled stranger cannot send into a room another device holds");
 });

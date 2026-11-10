@@ -4,8 +4,7 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
   "observability": { "enabled": true },
-  "durable_objects": { "bindings": [{ "name": "MIRROR", "class_name": "Mirror" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mirror"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mirror"] }, { "tag": "v2", "deleted_classes": ["Mirror"] }],
   "kv_namespaces": [{ "binding": "DEVICES", "id": "4038b2c5949a4c3ca1cbd3174ec0635c" }],
   "d1_databases": [{ "binding": "BETA", "database_name": "ahead-beta", "database_id": "a7314a45-27a9-44d0-9be6-a3a68cfe18ba", "migrations_dir": "migrations" }],
   "vars": {

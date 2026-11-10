@@ -50,17 +50,7 @@ App Attest (Jog-sama/AHEAD#28) is the later proof that a key lives in the real a
 The owner's switch is the block list: `./devices.sh list` shows each phone with today's count, today's totals and the
 blocked ids; `block <id>` removes the phone's key and refuses that id when it enrolls again; `unblock <id>` lifts it. A
 blocked phone that clears its app's storage makes a new id, so a block is for an honest phone, not for an attacker.
-The token comes from `.dev.vars`. `GET /enroll/<id>` answers `approved`, `blocked` or `unknown`. The mirror's phone
-proves itself with a signature over `mirror.<code>.<time>` or the owner token; a blocked phone's open mirror socket lasts
-until it closes.
-
-`GET /mirror/<code>` upgraded to a WebSocket is the demo mirror: the phone connects with `?role=send` and says
-`{type: "hello", token}` or `{type: "hello", device: {id, time, sig}}` within 5 s (else closed with 4001); a computer
-connects with no role and needs only the code (8 characters, no 0, O, 1 or I). Whatever the phone then sends goes
-to every viewer: `{type: "state", …}`, a snapshot of its screen as text and cell classes, kept and replayed to a
-viewer that joins late; `{type: "row", row}` and `{type: "reset"}` for the walk log. Viewers hear
-`{type: "phone", on}`; the phone hears `{type: "watchers", n}`. One Durable Object (`Mirror`, SQLite-backed) per code;
-nothing is stored. The photo never passes through it.
+The token comes from `.dev.vars`. `GET /enroll/<id>` answers `approved`, `blocked` or `unknown`.
 
 Request: `{image, corridor, question}`. `image` is base64 JPEG without a `data:` prefix (send the long side at
 1092 px or less; the API does not resize below that). `corridor` is `[[9], [9]]` or null: the chest band then the head
@@ -70,7 +60,7 @@ band, metres or null per cell, 30° left to 30° right, the 5th-percentile dista
 Response, always JSON: `{answer, abstain, reason?}`. `answer` is at most 25 words. `abstain: true` comes with a
 `reason`: `"crossing"`, `"no answer"`, or the model's one clause.
 
-CORS: `https://jonasneves.com` and `null` (the page bundled in the app), with `OPTIONS`. Add an origin to
+CORS: `https://aheadcane.github.io` (the beta form) and `null` (the page bundled in the app), with `OPTIONS`. Add an origin to
 `ALLOWED_ORIGINS` in `src/index.js`.
 
 ## Beta requests

@@ -100,21 +100,20 @@ Taken on a real LiDAR iPhone, 6.9-inch size (iPhone 16 or 17 Pro Max), no mock-u
 
 Draft, to be pasted with the demo video's link. Sign-in required: **off**. There is no account, no demo mode and no reviewer switch.
 
-> Ahead is an iPhone app for people who walk with a white cane. It uses the phone's LiDAR sensor to give vibration cues for objects at chest and head height, and answers a spoken question about a photo. There is no account.
+> Ahead is an iPhone app for people who walk with a white cane. It uses the phone's LiDAR sensor to give vibration cues for objects at chest and head height, and answers a spoken question about a photo. There is no account. The cane attachment and the thumb lever are optional Bluetooth boards; these steps need neither.
 >
 > A video of a person walking with the app and its cane attachment is at <LINK, no login>.
 >
-> Without a cane attachment (the attachment is optional): open the app and read the safety statement, tap Done. Tap Start. On an iPhone with LiDAR the screen shows the distance grid and the phone vibrates faster as something comes within 2.5 m and 1 m. The cane attachment is a separate Bluetooth board; "Connect cane" finds nothing without it, and the line under it says so. That is expected.
+> 1. Open the app, read the safety statement and tap Done.
+> 2. Tap Start. The app asks for Camera and Motion. On an iPhone with LiDAR the screen shows the distance grid, and the phone vibrates faster as something comes within 2.5 m and then 1 m. On an iPhone without LiDAR (anything but a 12 Pro or later Pro model), Start says "This iPhone has no LiDAR sensor, so the walk cue cannot run" and speaks it. This is expected: the sensor cannot be emulated.
+> 3. Hold "What is ahead", say a question such as "what does the sign say", and release. The app asks for Microphone and Speech Recognition the first time. The photo and the question go to our server and on to Anthropic's API. The phone registers with the server automatically the first time the app opens, within daily limits, so no approval is needed; if the daily limit is reached the app says so aloud and the other features work. Questions about crossing a street are never answered, by design. Spoken questions need iOS 26: on iOS 17 to 25 the button reports "Could not listen: needs iOS 26", and a plain tap answers from the photo on the phone without sending it.
+> 4. Tap "Connect cane". The app asks for Bluetooth. Without the board it finds nothing and the line under it says so. This step is expected to fail without the hardware.
 >
-> On an iPhone without LiDAR (anything but a 12 Pro or later Pro model), Start says "This iPhone has no LiDAR sensor, so the walk cue cannot run" and speaks it. This is expected: the sensor cannot be emulated.
->
-> Ask: on any iPhone with iOS 26, hold "What is ahead", say a question such as "what does the sign say", release. Ahead asks for the microphone and speech recognition the first time. A photo and the question go to our server and on to Anthropic's API. A phone is registered with the server automatically the first time the app opens, within daily limits, so no approval is needed. If the daily limit is reached the app says so aloud and the other features work. Questions about crossing a street are never answered by design.
->
-> Permissions are requested only when a feature is used: Camera and Motion when you tap Start, Microphone and Speech Recognition when you hold the button, Bluetooth when you connect the cane. Several other purpose strings exist because the shared code links those frameworks; the app never asks for them.
+> Other purpose strings exist because the shared code links those frameworks; the app never asks for them.
 >
 > Contact: <contact, open in #29>
 
-What the reviewer's device will do, from the code: a non-LiDAR phone reaches Start and the Ask button; a phone on iOS 17 to 25 cannot ask by voice: the voice button reports "Could not listen: needs iOS 26" (`Bridge/Speech.swift:19`, shown by `listen` in the page), and there are no typed questions, so Ask there is the plain tap, answered on the phone from the photo and not sent to the cloud. State this in the notes if the reviewer's iOS version is unknown.
+Step 3's iOS 17 to 25 sentence is from the code: `Bridge/Speech.swift:19` refuses before iOS 26, and `answer` in `ios/Ahead/index.html` sends only a spoken question to the cloud; a tap labels the photo and reads its text on the phone.
 
 ## Open before submission
 

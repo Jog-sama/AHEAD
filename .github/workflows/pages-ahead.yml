@@ -1,13 +1,12 @@
 # The Ahead app's page is also served at jonasneves.com/bridge/ahead/, from jonasneves/jonasneves.github.io's
-# docs/bridge/ahead/. This job copies ios/Ahead/index.html there, and site/ beside it: redirects from the old
-# beta/, privacy/ and support/ addresses to aheadcane.github.io, which build 1.0 (3) and the invitation emails still
-# use. The push uses a write deploy key on that one repo (secret AHEAD_PAGES_KEY), so it reaches nothing else.
-name: "ios/Ahead and site/: publish to jonasneves.com"
+# docs/bridge/ahead/. This job copies ios/Ahead/index.html there on every change. The push uses a write deploy key
+# on that one repo (secret AHEAD_PAGES_KEY), so it reaches nothing else.
+name: "ios/Ahead: publish to jonasneves.com"
 
 on:
   push:
     branches: [main]
-    paths: ['ios/Ahead/index.html', 'site/**']
+    paths: ['ios/Ahead/index.html']
   workflow_dispatch:
 
 permissions:
@@ -30,7 +29,6 @@ jobs:
         run: |
           mkdir -p site/docs/bridge/ahead
           cp src/ios/Ahead/index.html site/docs/bridge/ahead/index.html
-          cp -R src/site/. site/docs/bridge/ahead/
           cd site
           git add docs/bridge/ahead
           if git diff --cached --quiet; then echo "already current"; exit 0; fi

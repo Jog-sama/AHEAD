@@ -10,7 +10,7 @@ import { betaRequest, betaOwner } from "./beta.js";
 const MODEL = "claude-opus-5-5";
 const TIMEOUT_MS = 8000;
 const MAX_WORDS = 25;
-const ALLOWED_ORIGINS = ["https://jonasneves.com", "null"];
+const ALLOWED_ORIGINS = ["https://jonasneves.com", "https://aheadcane.github.io", "null"];
 
 export const NO_ANSWER = { answer: "Not sure.", abstain: true, reason: "no answer" };
 export const CROSSING = { answer: "I do not judge crossings.", abstain: true, reason: "crossing" };

@@ -224,7 +224,7 @@ body.watch #link{margin:0;text-align:center;font-size:17px}
 <dialog id=privacy class=sheet aria-labelledby=privacy-title>
 <div class=sheet-bar><h1 id=privacy-title>Privacy policy</h1><button id=privacy-done>Done</button></div>
 <div class=sheet-body>
-<p class=foot style="padding-top:16px">What leaves this phone: when you ask a question, a photo, the LiDAR readings and your question go through our server to Anthropic's API; the first time Ahead opens, a random id, a public key and the phone's name register it with our server; if you join the beta, your email. Nothing else. The full policy is below and at jonasneves.com/bridge/ahead/privacy/.</p>
+<p class=foot style="padding-top:16px">What leaves this phone: when you ask a question, a photo, the LiDAR readings and your question go through our server to Anthropic's API; the first time Ahead opens, a random id, a public key and the phone's name register it with our server; if you join the beta, your email. Nothing else. The full policy is below and at aheadcane.github.io/privacy/.</p>
 <iframe id=privacy-frame title="Privacy policy" style="width:100%;height:60vh;border:0" loading=lazy></iframe>
 </div>
 </dialog>
@@ -1274,7 +1274,7 @@ LEARN.forEach(([label,say,play])=>{
  $('learn-list').prepend(b)}
 $('safety-open').onclick=()=>{$('sheet').close();$('safety').showModal()};
 $('safety-done').onclick=()=>{$('safety').close();store.set('ahead.safety','1');if(!store.get('ahead.learned'))$('learn').showModal()};
-$('privacy-open').onclick=()=>{$('sheet').close();$('privacy-frame').src='https://jonasneves.com/bridge/ahead/privacy/';$('privacy').showModal()};
+$('privacy-open').onclick=()=>{$('sheet').close();$('privacy-frame').src='https://aheadcane.github.io/privacy/';$('privacy').showModal()};
 $('privacy-done').onclick=()=>$('privacy').close();
 $('learn-open').onclick=()=>{$('sheet').close();$('learn').showModal()};
 $('learn-done').onclick=()=>{$('learn').close();store.set('ahead.learned','1')};

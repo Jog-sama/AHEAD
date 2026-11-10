@@ -1,7 +1,7 @@
 # The Ahead app's page is also served at jonasneves.com/bridge/ahead/, from jonasneves/jonasneves.github.io's
-# docs/bridge/ahead/. This job copies ios/Ahead/index.html there, and site/ (the beta form, privacy and support
-# pages, at beta/, privacy/ and support/) beside it, on every change. The push uses a write deploy key on
-# that one repo (secret AHEAD_PAGES_KEY), so it reaches nothing else.
+# docs/bridge/ahead/. This job copies ios/Ahead/index.html there, and site/ beside it: redirects from the old
+# beta/, privacy/ and support/ addresses to aheadcane.github.io, which build 1.0 (3) and the invitation emails still
+# use. The push uses a write deploy key on that one repo (secret AHEAD_PAGES_KEY), so it reaches nothing else.
 name: "ios/Ahead and site/: publish to jonasneves.com"
 
 on:

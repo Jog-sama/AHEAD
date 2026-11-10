@@ -11,9 +11,9 @@ Rules relied on, as read on developer.apple.com on 2026-11-09 (quote the live pa
 | Name (30) | Ahead Cane (the App Store Connect record's name; the home-screen name is Ahead) |
 | Subtitle (30) | Extra cues beside your cane |
 | Category | Primary Utilities; secondary Health & Fitness is not used, because it invites the medical reading of 1.4.1 |
-| Support URL | https://jonasneves.com/bridge/ahead/support/ |
-| Privacy policy URL | https://jonasneves.com/bridge/ahead/privacy/ (also in the app: Settings › Privacy policy) |
-| Marketing URL | https://github.com/Jog-sama/AHEAD |
+| Support URL | https://aheadcane.github.io/support/ |
+| Privacy policy URL | https://aheadcane.github.io/privacy/ (also in the app: Settings › Privacy policy) |
+| Marketing URL | https://aheadcane.github.io/ |
 | Version | 1.0 (`project.yml`, setting group `aheadBuild`) |
 | Copyright | 2026 Jonas Neves (to confirm with the team; #29) |
 

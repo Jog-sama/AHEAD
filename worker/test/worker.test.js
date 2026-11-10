@@ -12,7 +12,7 @@ const post = (body, headers = {}) =>
   });
 
 test("OPTIONS answers allowed origins, including the app's null origin", async () => {
-  for (const origin of ["https://jonasneves.com", "null"]) {
+  for (const origin of ["https://jonasneves.com", "https://aheadcane.github.io", "null"]) {
     const res = await worker.fetch(new Request("https://ahead-ask.test/", { method: "OPTIONS", headers: { Origin: origin } }), env);
     assert.equal(res.status, 204, origin);
     assert.equal(res.headers.get("Access-Control-Allow-Origin"), origin);

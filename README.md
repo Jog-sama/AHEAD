@@ -1,5 +1,7 @@
 # AHEAD
 
+[![TestFlight: join the Ahead beta](https://img.shields.io/badge/TestFlight-join_the_Ahead_beta-0D96F6?logo=apple&logoColor=white)](https://testflight.apple.com/join/RuyPSTNZ) [![Website: aheadcane.github.io](https://img.shields.io/badge/Website-aheadcane.github.io-555555)](https://aheadcane.github.io/)
+
 Ahead is an iPhone app for people who walk with a white cane. The phone sits in a chest mount and reads what is at chest and head height with its LiDAR sensor, where the cane does not reach, and gives a vibration cue. An optional board on the cane adds a buzz in the grip and a thumb lever.
 
 ## What it does
@@ -31,8 +33,6 @@ This is a controlled cue demonstrator, not a navigation aid or a safety system. 
 Ahead is an extra cue and never replaces your cane or your own judgement. It can miss things such as glass, thin poles, steps and drops, and it never tells you whether to cross a street. Silence does not mean the way is clear.
 
 ## Try it
-
-[![TestFlight: join the Ahead beta](https://img.shields.io/badge/TestFlight-join_the_Ahead_beta-0D96F6?logo=apple&logoColor=white)](https://testflight.apple.com/join/RuyPSTNZ)
 
 Install Ahead from [TestFlight](https://testflight.apple.com/join/RuyPSTNZ). It needs an iPhone with LiDAR, a 12 Pro or a later Pro model, and iOS 26 for asking by voice. The cane board and the thumb lever are optional. Help and the privacy policy: [aheadcane.github.io](https://aheadcane.github.io/).
 

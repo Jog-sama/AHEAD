@@ -85,6 +85,6 @@ How a cue is decided on the Mac path, the API and the Mac path's folders: [docs/
 | --- | --- |
 | `eval/` | walking protocol, sensor bench log, NASA-TLX, and `analyze.py` for the CSV the app exports |
 | `worker/` | the Cloudflare Worker behind Ask: photo plus LiDAR readings in, one spoken sentence out; `npm test` checks the two rules offline; `npx wrangler deploy` |
-| `ios/Ahead/` | the iPhone app's page, its whole interface; TestFlight https://testflight.apple.com/join/RuyPSTNZ. The native shell is the `Ahead` target of jonasneves/phone-bridge (private, ask for access) |
+| `ios/Ahead/` | the iPhone app's page, its whole interface; TestFlight https://testflight.apple.com/join/RuyPSTNZ. The native shell is the `Ahead` target of jonasneves/porch (private, ask for access) |
 | `firmware/cane/` | the cane's ESP32 firmware: a BLE peripheral with an upward distance sensor, a button and a coin motor, and optionally the thumb lever's servo; pins, GATT and fail-safes in its README |
 | `firmware/thumb/` | the thumb lever alone as a BLE peripheral, and `Thumb.h`, the servo service the cane firmware also carries |
